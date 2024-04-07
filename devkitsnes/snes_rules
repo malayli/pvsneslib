@@ -25,7 +25,7 @@ endif
 ifeq ($(OS),Windows_NT)
 DRIDIROBJW   := $(wordlist 1,1,$(subst /, ,${LIBDIRSOBJS}))
 REPDIROBJSW  := $(subst /,\\,${LIBDIRSOBJS})
-REPDIROBJSW1 := $$(echo "$(REPDIROBJSW)" | sed 's/^.\{3\}//')
+REPDIROBJSW1 := $$(echo "$(REPDIROBJSW)" | gsed 's/^.\{3\}//')
 LIBDIRSOBJSW := ${DRIDIROBJW}:\\${REPDIROBJSW1}
 else
 LIBDIRSOBJSW := ${LIBDIRSOBJS}
@@ -127,7 +127,7 @@ endif
 # -c should be removed ASAP ! It allow duplicate labels and definitions
 	$(LD) -d -s -v -A -c -L ${LIBDIRSOBJS} linkfile $@
 
-	@sed -i 's/://' $(ROMNAME).sym
+	@gsed -i 's/://' $(ROMNAME).sym
 
 	@echo
 	@echo Build finished successfully !

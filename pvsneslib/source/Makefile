@@ -24,7 +24,7 @@ export SNESOBJS = crt0_snes.obj libm.obj libtcc.obj libc.obj
 %.ps: %.c
 	@echo $(notdir $<)
 	$(CC) $(CFLAGS) -Wall -c $< -o $@
-	sed -i 's/.include "hdr.asm"//' $@
+	gsed -i 's/.include "hdr.asm"//' $@
 
 all: $(SNESOBJS)
 	@mv *.obj ../lib
