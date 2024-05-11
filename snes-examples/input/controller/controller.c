@@ -12,6 +12,11 @@ extern char snesfont, snespal;
 
 unsigned short pad0;
 
+// interruption of vblank (send information to vram via DMA)
+void myconsoleVblank()
+{
+}
+
 //---------------------------------------------------------------------------------
 int main(void)
 {
@@ -37,8 +42,12 @@ int main(void)
     // Wait for nothing :P
     setScreenOn();
 
+    nmiSet(myconsoleVblank);
+
     while (1)
     {
+        scanPads();
+
         // Get current #0 pad
         pad0 = padsCurrent(0);
 
