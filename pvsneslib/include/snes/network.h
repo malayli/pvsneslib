@@ -59,7 +59,6 @@ typedef enum KEYPAD_BITS
     KEY_Y = BIT(14),      //!< pad Y button.
 } KEYPAD_BITS;
 
-extern u16 pad_keys[2];
 extern u16 pad_keysold[2];
 extern u16 pad_keysrepeat[2];
 
@@ -112,21 +111,6 @@ extern u8 snes_mplay5; /*!< \brief 1 if MultiPlay5 connected */
     \brief Wait for pad ready and read pad values in .
 */
 void scanPads(void);
-
-/*!	\fn  padsCurrent(value)
-    \brief Return current value of selected pad
-    \param value Address of the pad to use (0 or 1 to 4 if multiplayer 5 connected)
-    \return unsigned short of the current pad value
-*/
-// unsigned short padsCurrent(u16 value);
-#define padsCurrent(value) (pad_keys[value])
-
-/*!	\fn padsDown(u16 value)
-    \brief Return value of down keys for selected pad
-    \param value Address of the pad to use (0 or 1 to 4 if multiplayer 5 connected)
-    \return unsigned short of the current pad value
-*/
-unsigned short padsDown(u16 value);
 
 /*!	\fn padsUp(u16 value)
     \brief Return value of up keys for selected pad

@@ -36,6 +36,7 @@
 pad_keys		dsb 10                        ; 5 pads , 16 bits reg
 pad_keysold		dsb 10                        ; 5 pads , 16 bits reg
 pad_keysrepeat	dsb 10                        ; 5 pads , 16 bits reg
+pad_keysdown	dsb 10                        ; 5 pads , 16 bits reg
 
 snes_mplay5		db							  ; 1 if MultiPlayer5 connected
 mp5read			db							  ; for multiplayer5 plug test
@@ -105,32 +106,31 @@ scanPads:
 	plb
 	
 	rep	#$20                                   ; copy joy states #1&2
+
 	ldy	pad_keys
 	sty	pad_keysold
 	ldy	pad_keys+2
 	sty	pad_keysold+2
 	
--:	lda	REG_HVBJOY                             ; wait until joypads are ready
-	lsr
-	bcs -
-
 	lda	REG_JOY1L                              ; read joypad register #1
 	bit	#$0F                                   ; catch non-joypad input
 	beq	+                                      ; (bits 0-3 should be zero)
-	lda.b	#$0
-+:	sta	pad_keys                               ; store 'current' state
+	lda.w	#$0
++
+	sta	pad_keys                               ; store 'current' state
 	eor	pad_keysold                            ; compute 'down' state from bits that
 	and	pad_keys                               ; have changed from 0 to 1
-	sta	pad_keysrepeat                         ;
+	sta	pad_keysdown                           ;
 
 	lda	REG_JOY2L                              ; read joypad register #2
 	bit	#$0F                                   ; catch non-joypad input
 	beq	+                                      ; (bits 0-3 should be zero)
-	lda.b	#$0
-+:	sta	pad_keys+2                             ; store 'current' state
+		lda.w	#$0
++
+	sta	pad_keys+2                             ; store 'current' state
 	eor	pad_keysold+2                          ; compute 'down' state from bits that
 	and	pad_keys+2                             ; have changed from 0 to 1
-	sta	pad_keysrepeat+2                       ;
+	sta	pad_keysdown+2                         ;
 
 	ply
 	plb
@@ -163,46 +163,12 @@ padsClear:
     sta pad_keys,x
     sta pad_keysold,x
 	sta pad_keysrepeat,x
+    sta pad_keysdown,x
     
 	plx
 	plb
 	plp
 	rtl
-.ENDS
-
-.SECTION ".pads2_text" SUPERFREE
-
-;---------------------------------------------------------------------------------
-; unsigned short padsDown(unsigned short value)
-;	return (pad_keys[value] & ~pad_keysold[value]);
-padsDown:
-	php
-	phb
-	phx
-	
-	sep	#$20                                   ; change bank address to 0
-	lda.b	#$0
-	pha
-	plb
-    
-    rep #$20
-    lda 8,s                                    ; get value
-    pha
-    plx
-    
-    lda pad_keysold,x
-    eor #$FFFF
-    sta.w tcc__r0
-    
-    lda pad_keys,x
-    and.w tcc__r0
-    sta.w tcc__r0
-    
-  	plx
-	plb
-	plp
-	rtl
-
 .ENDS
 
 .SECTION ".pads3_text" SUPERFREE

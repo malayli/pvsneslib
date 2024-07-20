@@ -9,12 +9,11 @@
 #include <snes.h>
 
 extern char snesfont, snespal;
+unsigned short padCurrent;
 
 //---------------------------------------------------------------------------------
 int main(void)
 {
-    unsigned short pad0;
-
     // Initialize SNES
     consoleInit();
 
@@ -43,51 +42,97 @@ int main(void)
     while (1)
     {
         // Get current #0 pad
-        pad0 = padsCurrent(0);
+        padCurrent = padsDown(0);
 
         // Update display with current pad
-        switch (pad0)
-        {
+        switch (padCurrent) {
         case KEY_A:
-            consoleDrawText(9, 10, "A PRESSED");
+            consoleDrawText(9, 10, "A PRESSED P1");
             break;
         case KEY_B:
-            consoleDrawText(9, 10, "B PRESSED");
+            consoleDrawText(9, 10, "B PRESSED P1");
             break;
         case KEY_SELECT:
-            consoleDrawText(9, 10, "SELECT PRESSED");
+            consoleDrawText(9, 10, "SELECT PRESSED P1");
             break;
         case KEY_START:
-            consoleDrawText(9, 10, "START PRESSED");
+            consoleDrawText(9, 10, "START PRESSED P1");
             break;
         case KEY_RIGHT:
-            consoleDrawText(9, 10, "RIGHT PRESSED");
+            consoleDrawText(9, 10, "RIGHT PRESSED P1");
             break;
         case KEY_LEFT:
-            consoleDrawText(9, 10, "LEFT PRESSED");
+            consoleDrawText(9, 10, "LEFT PRESSED P1");
             break;
         case KEY_DOWN:
-            consoleDrawText(9, 10, "DOWN PRESSED");
+            consoleDrawText(9, 10, "DOWN PRESSED P1");
             break;
         case KEY_UP:
-            consoleDrawText(9, 10, "UP PRESSED");
+            consoleDrawText(9, 10, "UP PRESSED P1");
             break;
         case KEY_R:
-            consoleDrawText(9, 10, "R PRESSED");
+            consoleDrawText(9, 10, "R PRESSED P1");
             break;
         case KEY_L:
-            consoleDrawText(9, 10, "L PRESSED");
+            consoleDrawText(9, 10, "L PRESSED P1");
             break;
         case KEY_X:
-            consoleDrawText(9, 10, "X PRESSED");
+            consoleDrawText(9, 10, "X PRESSED P1");
             break;
         case KEY_Y:
-            consoleDrawText(9, 10, "Y PRESSED");
+            consoleDrawText(9, 10, "Y PRESSED P1");
             break;
         default:
-            consoleDrawText(9, 10, "              ");
+            consoleDrawText(9, 10, "                         ");
             break;
         }
+
+        // Get current #1 pad
+        padCurrent = padsDown(1);
+
+        // Update display with current pad
+        switch (padCurrent) {
+        case KEY_A:
+            consoleDrawText(9, 14, "A PRESSED P2");
+            break;
+        case KEY_B:
+            consoleDrawText(9, 14, "B PRESSED P2");
+            break;
+        case KEY_SELECT:
+            consoleDrawText(9, 14, "SELECT PRESSED P2");
+            break;
+        case KEY_START:
+            consoleDrawText(9, 14, "START PRESSED P2");
+            break;
+        case KEY_RIGHT:
+            consoleDrawText(9, 14, "RIGHT PRESSED P2");
+            break;
+        case KEY_LEFT:
+            consoleDrawText(9, 14, "LEFT PRESSED P2");
+            break;
+        case KEY_DOWN:
+            consoleDrawText(9, 14, "DOWN PRESSED P2");
+            break;
+        case KEY_UP:
+            consoleDrawText(9, 14, "UP PRESSED P2");
+            break;
+        case KEY_R:
+            consoleDrawText(9, 14, "R PRESSED P2");
+            break;
+        case KEY_L:
+            consoleDrawText(9, 14, "L PRESSED P2");
+            break;
+        case KEY_X:
+            consoleDrawText(9, 14, "X PRESSED P2");
+            break;
+        case KEY_Y:
+            consoleDrawText(9, 14, "Y PRESSED P2");
+            break;
+        default:
+            consoleDrawText(9, 14, "                         ");
+            break;
+        }
+
         WaitForVBlank();
     }
     return 0;

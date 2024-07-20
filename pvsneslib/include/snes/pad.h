@@ -62,6 +62,7 @@ typedef enum KEYPAD_BITS
 extern u16 pad_keys[2];
 extern u16 pad_keysold[2];
 extern u16 pad_keysrepeat[2];
+extern u16 pad_keysdown[2];
 
 extern u8 snes_mplay5; /*!< \brief 1 if MultiPlay5 connected */
 
@@ -126,7 +127,7 @@ void scanPads(void);
     \param value Address of the pad to use (0 or 1 to 4 if multiplayer 5 connected)
     \return unsigned short of the current pad value
 */
-unsigned short padsDown(u16 value);
+#define padsDown(value) (pad_keysdown[value])
 
 /*!	\fn padsUp(u16 value)
     \brief Return value of up keys for selected pad
