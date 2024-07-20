@@ -42,7 +42,7 @@ int main(void)
     while (1)
     {
         // Get current #0 pad
-        padCurrent = padsDown(0);
+        padCurrent = padsUp(0);
 
         // Update display with current pad
         switch (padCurrent) {
@@ -88,7 +88,7 @@ int main(void)
         }
 
         // Get current #1 pad
-        padCurrent = padsDown(1);
+        padCurrent = padsUp(1);
 
         // Update display with current pad
         switch (padCurrent) {
