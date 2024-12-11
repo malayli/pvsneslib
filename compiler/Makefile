@@ -57,7 +57,7 @@ tcc-install:
 wla:
 	cd $(WLA_DIR) && \
 	cmake -G "$(CMAKE_TYPE)" . && \
-	$(MAKE) wla-65816 wla-spc700 wlalink
+	$(MAKE) wla-65816 wla-spc700 wlalink wla-superfx
 
 # Define the wla-clean target
 wla-clean:
@@ -67,7 +67,7 @@ wla-clean:
 
 # Define the wla-install target
 wla-install:
-	@cp $(WLA_DIR)/binaries/wla-65816 $(WLA_DIR)/binaries/wla-spc700 $(WLA_DIR)/binaries/wlalink $(BIN_DIR)
+	@cp $(WLA_DIR)/binaries/wla-65816 $(WLA_DIR)/binaries/wla-spc700 $(WLA_DIR)/binaries/wlalink $(WLA_DIR)/binaries/wla-superfx $(BIN_DIR)
 
 # update the submodule to the last commit
 wla-update:
