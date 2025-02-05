@@ -77,8 +77,6 @@ spc_bank:	DS 1
 spc1:		DS 2
 spc2:		DS 2
 
-spcsav:		DS 1
-
 spc_fread:	DS 1
 spc_fwrite:	DS 1
 
@@ -131,7 +129,7 @@ spcPlay:
 	jmp	QueueMessage		;
 
 ;**********************************************************************
-; x = starting position
+; Resume music
 ;**********************************************************************
 spcResumeMusic:
 ;----------------------------------------------------------------------
@@ -140,14 +138,10 @@ spcResumeMusic:
 	sep #$20
 	lda #$0
 	pha
-	plb 				; change bank address to 0
+	plb
 
-	lda spcsav			; restore current position
-	sta	spc1+1			; id -- xx
-
-	lda	#CMD_RESUME		; play again music
-	jmp	QueueMessage	;
-
+	lda	#CMD_RESUME
+	jmp	QueueMessage
 
 ;======================================================================
 ;.code
@@ -800,11 +794,9 @@ spcPauseMusic:
 	sep #$20
 	lda #$0
 	pha
-	plb 				; change bank address to 0
+	plb
 
-	lda REG_APUIO3		; save current position
-	sta spcsav
-	lda	#CMD_PAUSE		; stop playing
+	lda	#CMD_PAUSE
 	jmp	QueueMessage
 
 ;**********************************************************************

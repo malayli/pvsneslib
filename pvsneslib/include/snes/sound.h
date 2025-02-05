@@ -113,7 +113,14 @@ void spcLoadEffect(u16 sfxIndex);
 */
 void spcPlay(u8 startPos);
 
+/*! \fn  spcPauseMusic(void)
+    \brief pause the current module.
+*/
 void spcPauseMusic();
+
+/*! \fn  spcResumeMusic(void)
+    \brief resume the current module.
+*/
 void spcResumeMusic();
 
 /*! \fn  spcStop(void)
