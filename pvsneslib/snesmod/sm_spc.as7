@@ -317,7 +317,7 @@ module_fadeC:	.block 1 ;timer counter
 
 mod_tick:	.block 1
 mod_row:	.block 1
-mod_position:	.block 1
+mod_pattern_position:	.block 1
 mod_bpm:	.block 1
 mod_speed:	.block 1
 mod_active:	.block 1
@@ -483,7 +483,7 @@ main_loop:
 UpdatePorts:
 ;--------------------------------------------------------
 	mov	SPC_PORT2, STATUS
-	mov	SPC_PORT3, mod_position
+	mov	SPC_PORT3, mod_pattern_position
 	ret
 	
 ;--------------------------------------------------------
@@ -872,7 +872,7 @@ _zerofill_ch:
 	cmp	x, #ch_end
 	bne	_zerofill_ch
 	ret
-	
+
 Module_Stop:
 	call	ResetSound
 	mov	SPC_CONTROL, #%110
@@ -880,8 +880,8 @@ Module_Stop:
 	ret
 
 Module_Pause:
-	call	ResetSound
 	mov	SPC_CONTROL, #%110
+	mov	mod_active, #0
 	ret
 
 ;********************************************************
@@ -890,7 +890,7 @@ Module_Pause:
 ; a = initial position
 ;********************************************************
 Module_Start:
-	mov	mod_position, a
+	mov	mod_pattern_position, a
 	call	ResetSound
 	call	Module_ResetChannels
 	mov	mod_active, #1
@@ -926,8 +926,9 @@ _cpan_normal:
 	
 	call	SetupEcho
 	
-	mov	a, mod_position
-	call	Module_ChangePosition
+	mov	a, mod_pattern_position
+	call Module_SetPatternPosition
+	call Module_ResetMusicPosition
 	
 	; start timer
 	mov	SPC_CONTROL, #%111
@@ -939,65 +940,25 @@ _cpan_normal:
 	ret
 
 ;********************************************************
-; play module...
+; resume module...
 ;
 ; a = initial position
 ;********************************************************
 Module_Resume:
-	mov	mod_position, a
-	call	ResetSound
-	call	Module_ResetChannels
 	mov	mod_active, #1
-	mov	a, !MODULE+MOD_IS
-	mov	mod_speed, a
-	mov	a, !MODULE+MOD_IT
-	call	Module_ChangeTempo
-	mov	a, !MODULE+MOD_IV
-	mov	mod_gvol, a
 
-	mov	x, #7				;
-_copy_cvolume1:					; copy volume levels
-	mov	a, !MODULE+MOD_CV+x		;
-	mov	ch_cvolume+x, a			;
-	dec	x				;
-	bpl	_copy_cvolume1			;
-	
-	mov	x, #7
-_copy_cpan1:
-	mov	a, !MODULE+MOD_CP+x
-	cmp	a, #65
-	bcs	_cpan_surround1
-	mov	ch_panning+x, a
-	bra	_cpan_normal1
-_cpan_surround1:
-	mov	a, #32
-	mov	ch_panning+x, a
-	mov	a, #CF_SURROUND
-	mov	ch_flags+x, a
-_cpan_normal1:
-	dec	x
-	bpl	_copy_cpan1
-	
-	call	SetupEcho
-	
-	mov	a, mod_position
-	call	Module_ChangePosition
-	
 	; start timer
 	mov	SPC_CONTROL, #%111
-	
-	or	STATUS, #STATUS_P
-	mov	SPC_PORT2, STATUS
 	
 	SETDSP( DSP_KOF, 0 );	// ??????
 	ret
 
 ;********************************************************
-; set sequence position
+; set pattern position
 ;
 ; a=position
 ;********************************************************
-Module_ChangePosition:
+Module_SetPatternPosition:
 	
 	mov	y, a
 _skip_pattern:
@@ -1012,7 +973,7 @@ _not_plusplusplus:
 	mov	y, #0			;
 	bra	_skip_pattern		;
 _not_end:
-	mov	mod_position, y
+	mov	mod_pattern_position, y
 	mov	y, a
 	mov	a, !MODULE+MOD_PTABLE_L+y
 	mov	patt_addr, a
@@ -1023,12 +984,17 @@ _not_end:
 	mov	patt_rows, a
 	
 	incw	patt_addr
-	
+	ret
+
+;********************************************************
+; set music position
+;********************************************************
+Module_ResetMusicPosition:
 	mov	pattjump_enable, #0
 	mov	mod_tick, #0
 	mov	mod_row, #0
 	ret
-	
+
 ;********************************************************
 ; a = new BPM value
 ;********************************************************
@@ -1121,7 +1087,8 @@ _skip_read_pattern:
 	cmp	pattjump_enable, #0	; catch pattern jump...
 	beq	_no_pattjump		;
 	mov	a, pattjump_index	;
-	jmp	Module_ChangePosition	;
+	call Module_SetPatternPosition	;
+	jmp Module_ResetMusicPosition
 _no_pattjump:				;
 	
 	inc	mod_row			; increment row until > PATTERN_ROWS
@@ -1131,9 +1098,10 @@ _no_pattjump:				;
 	bcc	_exit_tick		;
 _adv_pos:
 	
-	mov	a, mod_position		; advance position
+	mov	a, mod_pattern_position		; advance position
 	inc	a			;
-	jmp	Module_ChangePosition	;
+	call Module_SetPatternPosition	;
+	jmp Module_ResetMusicPosition
 _exit_tick:
 	ret
 
@@ -2097,7 +2065,7 @@ Command_PatBreak:
 	; nonzero params are not supported
 	;
 	bne	cmd_exit1			;on tick0:
-	mov	pattjump_index, mod_position	; index = position+1
+	mov	pattjump_index, mod_pattern_position	; index = position+1
 	inc	pattjump_index			; enable pattern jump(break)
 	mov	pattjump_enable, #1		;
 	ret
