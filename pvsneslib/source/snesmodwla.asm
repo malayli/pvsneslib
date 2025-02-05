@@ -55,8 +55,9 @@
 .define CMD_FADE	06h
 .define CMD_RES		07h
 .define CMD_FX		08h
-.define CMD_TEST	09h
+.define CMD_PAUSE	09h
 .define CMD_SSIZE	0Ah
+.define CMD_RESUME  0Bh
 
 ;----------------------------------------------------------------------
 
@@ -75,6 +76,8 @@ spc_bank:	DS 1
 
 spc1:		DS 2
 spc2:		DS 2
+
+spcsav:		DS 1
 
 spc_fread:	DS 1
 spc_fwrite:	DS 1
@@ -108,6 +111,43 @@ digi_copyrate:	DS 1
 .DEFINE SPC_BOOT 0400h ; spc entry/load address
 
 .SECTION ".soundmod" SUPERFREE
+
+;**********************************************************************
+; x = starting position
+;**********************************************************************
+spcPlay:
+;----------------------------------------------------------------------
+	php ; alek
+	phb ; alek
+	sep #$20
+	lda #$0
+	pha
+	plb ; change bank address to 0
+
+	lda	6,s	; module_id
+
+	sta	spc1+1			; id -- xx
+	lda	#CMD_PLAY		;
+	jmp	QueueMessage		;
+
+;**********************************************************************
+; x = starting position
+;**********************************************************************
+spcResumeMusic:
+;----------------------------------------------------------------------
+	php 
+	phb 
+	sep #$20
+	lda #$0
+	pha
+	plb 				; change bank address to 0
+
+	lda spcsav			; restore current position
+	sta	spc1+1			; id -- xx
+
+	lda	#CMD_RESUME		; play again music
+	jmp	QueueMessage	;
+
 
 ;======================================================================
 ;.code
@@ -743,25 +783,6 @@ spcProcessMessages:
 	plp ; alek
 	rtl ; alek
 	
-;**********************************************************************
-; x = starting position
-;**********************************************************************
-spcPlay:
-;----------------------------------------------------------------------
-	php ; alek
-	phb ; alek
-	sep #$20
-	lda #$0
-	pha
-	plb ; change bank address to 0
-
-	lda	6,s	; module_id
-	
-;	txa				; queue message: 
-	sta	spc1+1			; id -- xx
-	lda	#CMD_PLAY		;
-	jmp	QueueMessage		;
-	
 spcStop:
 	php ; alek
 	phb ; alek
@@ -773,23 +794,18 @@ spcStop:
 	lda	#CMD_STOP
 	jmp	QueueMessage
 
-;-------test function-----------;
-spcTest:			;#
-	php
-	lda	spc_v		;#
--:	cmp.l	REG_APUIO1	;#
-	bne	-		;#
-	xba			;#
-	lda	#CMD_TEST	;#
-	sta.l	REG_APUIO0	;#
-	xba			;#
-	eor	#$80		;#
-	sta	spc_v		;#
-	sta.l	REG_APUIO1	;#
-	plp
-	rtl			;#
-;--------------------------------#
-; ################################
+spcPauseMusic:
+	php 
+	phb 
+	sep #$20
+	lda #$0
+	pha
+	plb 				; change bank address to 0
+
+	lda REG_APUIO3		; save current position
+	sta spcsav
+	lda	#CMD_PAUSE		; stop playing
+	jmp	QueueMessage
 
 ;**********************************************************************
 ; read status register

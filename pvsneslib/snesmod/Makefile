@@ -5,7 +5,7 @@ endif
 
 include ${PVSNESLIB_HOME}/devkitsnes/snes_rules
 
-export TA := tasm
+export TA := wine tasm
 
 all: sm_spc.asm
 	@echo copying sm_spc.asm in source ...
