@@ -882,6 +882,7 @@ Module_Stop:
 Module_Pause:
 	mov	SPC_CONTROL, #%110
 	mov	mod_active, #0
+	SETDSP(DSP_KOF, 0FFh);
 	ret
 
 ;********************************************************
