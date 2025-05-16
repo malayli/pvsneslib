@@ -12,9 +12,9 @@ RUN echo "minrate=30k" >> /etc/dnf/dnf.conf
 
 RUN echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf
 
-RUN sed -i 's|enabled=1|enabled=0|g' /etc/yum.repos.d/fedora-cisco-openh264.repo
+RUN gsed -i 's|enabled=1|enabled=0|g' /etc/yum.repos.d/fedora-cisco-openh264.repo
 
-RUN sed -i 's|enabled=1|enabled=0|g' /etc/yum.repos.d/fedora-modular.repo
+RUN gsed -i 's|enabled=1|enabled=0|g' /etc/yum.repos.d/fedora-modular.repo
 
 RUN dnf -y update
 

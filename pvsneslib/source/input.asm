@@ -95,6 +95,53 @@ scope_sinceshot	dsb 2
 
 .ENDS
 
+.SECTION ".pads0_text" SUPERFREE
+
+;---------------------------------------------------------------------------------
+; void scanPads(void)
+scanPads:
+	php
+	phb
+	phy
+	
+	sep	#$20                                   ; change bank address to 0
+	lda.b	#$0
+	pha
+	plb
+	
+	rep	#$20                                   ; copy joy states #1&2
+
+	ldy	pad_keys
+	sty	pad_keysold
+	ldy	pad_keys+2
+	sty	pad_keysold+2
+	
+	lda	REG_JOY1L                              ; read joypad register #1
+	bit	#$0F                                   ; catch non-joypad input
+	beq	+                                      ; (bits 0-3 should be zero)
+	lda.w	#$0
++
+	sta	pad_keys                               ; store 'current' state
+	eor	pad_keysold                            ; compute 'down' state from bits that
+	and	pad_keys                               ; have changed from 0 to 1
+	sta	pad_keysdown                           ;
+
+	lda	REG_JOY2L                              ; read joypad register #2
+	bit	#$0F                                   ; catch non-joypad input
+	beq	+                                      ; (bits 0-3 should be zero)
+		lda.w	#$0
++
+	sta	pad_keys+2                             ; store 'current' state
+	eor	pad_keysold+2                          ; compute 'down' state from bits that
+	and	pad_keys+2                             ; have changed from 0 to 1
+	sta	pad_keysdown+2                         ;
+
+	ply
+	plb
+	plp
+	rtl
+.ENDS
+
 ;---------------------------------------------------------------------------------
 ; Mouse variables
 ;---------------------------------------------------------------------------------

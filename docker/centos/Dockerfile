@@ -8,9 +8,9 @@ ENV DISTRO $DISTRO
 
 RUN echo 'PS1=$PS1A' >> ~/.bashrc
 
-RUN sed -i 's/mirrorlist/#mirrorlist/g' \
+RUN gsed -i 's/mirrorlist/#mirrorlist/g' \
         /etc/yum.repos.d/CentOS-*
-RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' \
+RUN gsed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' \
         /etc/yum.repos.d/CentOS-*
 
 RUN echo "minrate=30k" >> /etc/dnf/dnf.conf
