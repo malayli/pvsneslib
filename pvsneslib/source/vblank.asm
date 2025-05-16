@@ -31,8 +31,6 @@ vblank_flag             dsb 1
 
 nmi_handler             dsb 4
 
-lag_frame_counter       dsb 2  ; Number of lag frames encountered (can be externally modified)
-
 snes_vblank_count       dsb 2  ; Incremented every VBlank interrupt
 
 .ENDS
@@ -665,27 +663,6 @@ FVBlank:
 .ACCU 16
 .INDEX 8
 
-	ldx.w  vblank_flag
-	beq    +
-		; Transfer oamMemory to OAM
-		stz.w  $2102            ; OAM address (word register)
-
-		lda.w  #$0400
-		sta.w  $4370            ; DMA type CPU -> PPU, auto inc, $2104 (OAM write)
-
-		lda.w  #$0220
-		sta.w  $4375            ; DMA size (0x220 = 128*4+32)
-
-		lda.w  #oamMemory.w
-		sta.w  $4372            ; DMA address = oam memory
-
-		ldx.b  #:oamMemory
-		stx.w  $4374            ; DMA address bank = oam memory
-
-		ldx.b  #$80
-		stx.w  $420b            ; DMA channel 7 1xxx xxxx
-	+
-
 	rep #$30
 .ACCU 16
 .INDEX 16
@@ -714,13 +691,6 @@ FVBlank:
 	bne    @ReadInputs
 		; The VBlank interrupt occurred in a lag frame
 		; Do not read inputs.
-
-		ldx.w  lag_frame_counter
-		inx
-		bne    +
-			dex
-		+
-		stx.w  lag_frame_counter
 
 		jmp    @EndReadInputs
 

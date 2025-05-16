@@ -197,8 +197,6 @@ int main(void)
 
         printU8(COL_1_XPOS, POS_YPOS, cursor_xPos);
         printU8(COL_2_XPOS, POS_YPOS, cursor_yPos);
-
-        consoleDrawText(COL_1_XPOS, LAG_YPOS, "%d", lag_frame_counter);
     }
     return 0;
 }
