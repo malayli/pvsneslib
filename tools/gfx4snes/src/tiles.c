@@ -281,7 +281,13 @@ void tiles_savepacked (const char *filename, unsigned char *tiles,int tilesnumbe
         free (outputname);
         exit(EXIT_FAILURE);
     }
-        
+
+    for (int t = 0; t < tilesnumber; t++) {
+        for (int i = 0; i < 64; i++) {
+            tiles[t*64 + i] |= 0x80;
+        }
+    }
+
 	// remember to add the blank if its needed....
     if (addblank) {
 		for (i = 0; i < 64; i++) {
