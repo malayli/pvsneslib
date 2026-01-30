@@ -438,9 +438,6 @@ _smd11:
     cmp bgCnt
     bne _smd11
 
-    lda #INT_VBLENABLE | INT_JOYPAD_ENABLE          ; enable NMI, enable autojoy
-    sta.l REG_NMITIMEN
-
     plp
     rtl
 
@@ -618,8 +615,6 @@ setMode7:
     jsr initm7_matric
 
     sep #$20
-    lda #INT_VBLENABLE | INT_JOYPAD_ENABLE      ; enable NMI, enable autojoy
-    sta.l REG_NMITIMEN
 
     plp
     rtl
