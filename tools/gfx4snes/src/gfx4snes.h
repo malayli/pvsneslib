@@ -49,6 +49,7 @@ typedef struct
     int palettesave;		           											// 1 = save the palette
     int paletteround;                  											// 1 = round palette up & down
     int paletterearrange;				    									// 1 = compute palette to fit with snes capabilities
+    int extbgindex;                                                           // external background index for packed tiles (0..7)
 } t_gfx4snes_args;
 
 //-------------------------------------------------------------------------------------------------
