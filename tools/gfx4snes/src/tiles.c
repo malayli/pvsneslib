@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <limits.h>
 #include "tiles.h"
 
 //-------------------------------------------------------------------------------------------------
@@ -257,7 +257,7 @@ void tiles_save (const char *filename, unsigned char *tiles,int nbtiles, int nbc
 // tilesnumber = number of tiles to write to file
 // addblank = 1 if we need to add a blank tile
 // isquiet = 0 if we want some messages in console
-void tiles_savepacked (const char *filename, unsigned char *tiles,int tilesnumber, bool addblank, bool isquiet)
+void tiles_savepacked (const char *filename, unsigned char *tiles,int tilesnumber, bool addblank, bool isquiet, int extBgIndex)
 {
 	char *outputname;
 	FILE *fp;
@@ -282,14 +282,16 @@ void tiles_savepacked (const char *filename, unsigned char *tiles,int tilesnumbe
         exit(EXIT_FAILURE);
     }
 
-    for (int t = 0; t < tilesnumber; t++) {
-        for (int i = 0; i < 64; i++) {
-            if (t >= 152) {
-                tiles[t * 64 + i] |= 0x80;
+    if (extBgIndex != INT_MAX) {
+        for (int t = 0; t < tilesnumber; t++) {
+            for (int i = 0; i < 64; i++) {
+                if (t >= extBgIndex) {
+                    tiles[t * 64 + i] |= 0x80;
+                }
             }
         }
     }
-        
+
 	// remember to add the blank if its needed....
     if (addblank) {
 		for (i = 0; i < 64; i++) {
