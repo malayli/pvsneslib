@@ -39,7 +39,8 @@ where filename is a 256 color PNG or BMP file
 - `-m` Include map for output  
 - `-g` Include high priority bit in map
 - `-y` Generate map in pages of 32x32 blocks (good for scrolling)
-- `-R` No tile reduction (not advised)  
+- `-R` No tile reduction (not advised)
+- `-E` Background index for tiles to render above sprites in Mode 7 (ExtBG)
 - `-F` deduplicate flipped tiles  
 - `-M (1|5|6|7||9)` Convert the whole picture for mode 1, 5, 6 or 7 format, 9 is without map constraint [1]
   

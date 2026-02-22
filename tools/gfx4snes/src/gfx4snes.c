@@ -68,7 +68,7 @@ static cmdp_command_st gfx4snes_command = {
             {'i', "file-input", "png or bmp image to convert", CMDP_TYPE_STRING_PTR, &gfx4snes_args.filebase},
             {'t', "file-type", "convert a png or bmp file", CMDP_TYPE_STRING_PTR, &gfx4snes_args.filetype, .type_name = "<png,bmp>"},
             {0, 0, "Miscellaneous options:\n", CMDP_TYPE_NONE, NULL,NULL},
-			{'E', "ext-bg-index", "background index for tiles to render above sprites", CMDP_TYPE_INT4, &gfx4snes_args.extbgindex},
+			{'E', "ext-bg-index", "background index for tiles to render above sprites in Mode 7 (ExtBG)", CMDP_TYPE_INT4, &gfx4snes_args.extbgindex},
 			{'q', "quiet", "quiet mode", CMDP_TYPE_BOOL, &gfx4snes_args.quietmode},
 			{'v', "version", "display version information", CMDP_TYPE_BOOL, &gfx4snes_args.dispversion},
             {0},
