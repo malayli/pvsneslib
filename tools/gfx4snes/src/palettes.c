@@ -408,3 +408,4 @@ void palette_save (const char *filename, int *palette,int nbcolors, bool isquiet
 	fclose(fp);
 	free (outputname);
 }
+

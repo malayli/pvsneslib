@@ -79,7 +79,7 @@ cmdp_action_t argument_callback(cmdp_process_param_st *params)
 			fatal("incorrect file type [%s]\nconversion terminated.", gfx4snes_args.filetype); // exit gfx4snes at this point
 		}
 	}
-	
+
 	// Tiles options -----------------------------------------------
 	// check size of image block parameter (default is 8)
 	if ( (gfx4snes_args.tilesize!=8) && (gfx4snes_args.tilesize!=16) && (gfx4snes_args.tilesize!=32) && (gfx4snes_args.tilesize!=64) )
@@ -178,6 +178,7 @@ cmdp_action_t argument_callback(cmdp_process_param_st *params)
 	{
 		fatal("incorrect value for palette color to use [%d]\nconversion terminated.", gfx4snes_args.palettecolors); // exit gfx4snes at this point
 	}
+
 #if 0
 	// TEST parameters option
 	for (int i = 0; i < params->argc; i++)
