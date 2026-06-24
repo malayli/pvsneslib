@@ -125,6 +125,9 @@ cmdp_action_t argument_callback(cmdp_process_param_st *params)
 		if ( (gfx4snes_args.metapriority<0) || (gfx4snes_args.metapriority>3) ) {
 			fatal("incorrect value for metasprite spriority [%d]\nconversion terminated.", gfx4snes_args.metapriority); // exit gfx4snes at this point
 		}
+		if ( (gfx4snes_args.metaflip<0) || (gfx4snes_args.metaflip>7) ) {
+			fatal("incorrect value for metasprite flip [%d], must be 0..7\nconversion terminated.", gfx4snes_args.metaflip); // exit gfx4snes at this point
+		}
 	}
 
 	// Palette options -----------------------------------------------
