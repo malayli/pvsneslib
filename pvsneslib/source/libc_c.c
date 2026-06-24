@@ -1231,7 +1231,7 @@ static u8 lzss7ReadVramHigh(u16 vramaddr)
 
 void LzssDecodeVram7(u8 *src, u16 address)
 {
-    unsigned int size, y, outpos, flags, bit;
+    unsigned int size, y, outpos, flags, bit, copy_len, copy_src;
 
     if ((src[0] & 0xF0) != 0x10)
         return;
@@ -1241,35 +1241,49 @@ void LzssDecodeVram7(u8 *src, u16 address)
 
     y = 4;
     outpos = 0;
+    flags = 0;
+    bit = 0;
+    copy_len = 0;
+    copy_src = 0;
 
     while (outpos < size)
     {
-        flags = src[y++];
-        for (bit = 0; bit < 8 && outpos < size; bit++)
+        if (copy_len > 0)
         {
-            if (flags & 0x80)
-            {
-                unsigned int b1 = src[y++];
-                unsigned int b2 = src[y++];
-                unsigned int length = (b1 >> 4) + 3;
-                unsigned int offset = ((b1 & 0x0F) << 8) | b2;
-                unsigned int start = outpos - offset - 1;
-                unsigned int i;
-
-                if (length > size - outpos)
-                    length = size - outpos;
-                for (i = 0; i < length; i++)
-                    lzss7WriteVramHigh((u16)(address + outpos + i),
-                                       lzss7ReadVramHigh((u16)(address + start + i)));
-                outpos += length;
-            }
-            else
-            {
-                lzss7WriteVramHigh((u16)(address + outpos), src[y++]);
-                outpos++;
-            }
-            flags <<= 1;
+            lzss7WriteVramHigh((u16)(address + outpos),
+                               lzss7ReadVramHigh((u16)(address + copy_src)));
+            copy_src++;
+            outpos++;
+            copy_len--;
+            continue;
         }
+
+        if (bit == 0)
+        {
+            flags = src[y++];
+            bit = 8;
+        }
+
+        if (flags & 0x80)
+        {
+            unsigned int b1 = src[y++];
+            unsigned int b2 = src[y++];
+            unsigned int length = (b1 >> 4) + 3;
+            unsigned int offset = ((b1 & 0x0F) << 8) | b2;
+
+            if (length > size - outpos)
+                length = size - outpos;
+            copy_src = outpos - offset - 1;
+            copy_len = length;
+        }
+        else
+        {
+            lzss7WriteVramHigh((u16)(address + outpos), src[y++]);
+            outpos++;
+        }
+
+        flags <<= 1;
+        bit--;
     }
 }
 
