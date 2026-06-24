@@ -44,6 +44,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <limits.h>
+#include <snes.h>
+#include <snes/lzss.h>
 
 /**
  * @brief Check if a character is a decimal digit.
@@ -1211,4 +1213,77 @@ int sscanf(const char *buf, const char *fmt, ...)
     i = vsscanf(buf, fmt, args);
     va_end(args);
     return i;
+}
+
+#define REG_VMDATAHREAD (*(vuint8 *)0x213A)
+
+static void lzss7WriteVramHigh(u16 vramaddr, u8 value)
+{
+    REG_VMADDLH = vramaddr;
+    REG_VMDATAH = value;
+}
+
+static u8 lzss7ReadVramHigh(u16 vramaddr)
+{
+    REG_VMADDLH = vramaddr;
+    return REG_VMDATAHREAD;
+}
+
+void LzssDecodeVram7(u8 *src, u16 address)
+{
+    unsigned int size, y, outpos, flags, bit;
+
+    if ((src[0] & 0xF0) != 0x10)
+        return;
+
+    size = src[1] | ((unsigned int)src[2] << 8) | ((unsigned int)src[3] << 16);
+    REG_VMAIN = VRAM_INCHIGH | VRAM_ADRTR_0B | VRAM_ADRSTINC_1;
+
+    y = 4;
+    outpos = 0;
+
+    while (outpos < size)
+    {
+        flags = src[y++];
+        for (bit = 0; bit < 8 && outpos < size; bit++)
+        {
+            if (flags & 0x80)
+            {
+                unsigned int b1 = src[y++];
+                unsigned int b2 = src[y++];
+                unsigned int length = (b1 >> 4) + 3;
+                unsigned int offset = ((b1 & 0x0F) << 8) | b2;
+                unsigned int start = outpos - offset - 1;
+                unsigned int i;
+
+                if (length > size - outpos)
+                    length = size - outpos;
+                for (i = 0; i < length; i++)
+                    lzss7WriteVramHigh((u16)(address + outpos + i),
+                                       lzss7ReadVramHigh((u16)(address + start + i)));
+                outpos += length;
+            }
+            else
+            {
+                lzss7WriteVramHigh((u16)(address + outpos), src[y++]);
+                outpos++;
+            }
+            flags <<= 1;
+        }
+    }
+}
+
+void bgInitMapTileSet7Lz(u8 *tileSource, u8 *mapSource, u8 *tilePalette, u16 address)
+{
+    setBrightness(0);
+    WaitForVBlank();
+
+    dmaCopyVram7(mapSource, address, 0x4000,
+                 VRAM_INCLOW | VRAM_ADRTR_0B | VRAM_ADRSTINC_1, 0x1800);
+    bgSetMapPtr(0, address, SC_32x32);
+
+    LzssDecodeVram7(tileSource, address);
+
+    dmaCopyCGram(tilePalette, 0, 256 * 2);
+    bgSetGfxPtr(0, address);
 }

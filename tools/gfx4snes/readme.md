@@ -24,7 +24,7 @@ where filename is a 256 color PNG or BMP file
 - `-b` Add blank tile management (for multiple bgs)  
 - `-s (8|16|32|64)` Size of image blocks in pixels [8]  
 - `-k` Output in packed pixel format
-- `-z` Output in lz77 compressed pixel format
+- `-z` Output tile data in lz77 compressed format (`.pic` bitplanes or mode 7 `.pc7`)
 - `-W` Width  of image blocks in pixels [8] (do not use with -s option)
 - `-H` Height of image blocks in pixels [8] (do not use with -s option) 
 
@@ -33,6 +33,7 @@ where filename is a 256 color PNG or BMP file
 - `-X (0..128)` Width of the metasprite
 - `-Y (0..128)` Height of the metasprite
 - `-P (0..3)` Priority of the metasprite 
+- `-L (1..7)` Flipped metasprite variants: bit1=flipx bit2=flipy bit3=flipx+flipy (you can combine)
 
 ### Map options
 - `-f (0..2047)` Generate the whole picture with an offset for tile number {0..2047}
@@ -57,7 +58,7 @@ where filename is a 256 color PNG or BMP file
 
 ### Misc options 
 - `-q` Quiet mode  
-- `-v` Display version information
+- `-v` Display version information  
   
 ## Example 
 ```
