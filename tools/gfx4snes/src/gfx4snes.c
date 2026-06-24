@@ -70,7 +70,7 @@ static cmdp_command_st gfx4snes_command = {
             {'i', "file-input", "png or bmp image to convert", CMDP_TYPE_STRING_PTR, &gfx4snes_args.filebase},
             {'t', "file-type", "convert a png or bmp file", CMDP_TYPE_STRING_PTR, &gfx4snes_args.filetype, .type_name = "<png,bmp>"},
             {0, 0, "Miscellaneous options:\n", CMDP_TYPE_NONE, NULL,NULL},
-			{'E', "ext-bg-index", "background index for tiles to render above sprites in Mode 7 (ExtBG)", CMDP_TYPE_INT4, &gfx4snes_args.extbgindex},
+			{'E', "ext-bg-index", "background index for tiles to render above sprites in Mode 7 (ExtBG)", CMDP_TYPE_INT4, &gfx4snes_args.extBgIndex},
 			{'q', "quiet", "quiet mode", CMDP_TYPE_BOOL, &gfx4snes_args.quietmode},
 			{'v', "version", "display version information", CMDP_TYPE_BOOL, &gfx4snes_args.dispversion},
             {0},
@@ -79,7 +79,7 @@ static cmdp_command_st gfx4snes_command = {
 };
 
 cmdp_ctx gfx4snes_ctx = {0};																		// contect for command line options
-t_gfx4snes_args gfx4snes_args = { .extbgindex = INT_MAX };  // generic struct for all arguments
+t_gfx4snes_args gfx4snes_args={0};  																// generic struct for all arguments
 
 int palette_snes[256];					                        									// palette in snes format (5bits RGB)
 unsigned short *map_snes=NULL;																		// map in snes format (16 bits table)
@@ -222,7 +222,10 @@ int main(int argc, const char **argv)
 
 		// save tiles
 		// propagate command-line ext bg index to local variable
-		extBgIndex = gfx4snes_args.extbgindex;
+		extBgIndex = gfx4snes_args.extBgIndex;
+
+		fprintf(stdout,"extBgIndex = %d\n",extBgIndex);
+
 		if ((gfx4snes_args.tilepacked) || (gfx4snes_args.mapscreenmode==7))
 		{
 			tiles_savepacked (gfx4snes_args.filebase, tiles_snes, nbtiles, gfx4snes_args.tileblank, gfx4snes_args.tilelzpacked, gfx4snes_args.quietmode, extBgIndex);

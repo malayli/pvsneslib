@@ -293,15 +293,6 @@ void tiles_savepacked (const char *filename, unsigned char *tiles,int tilesnumbe
         exit(EXIT_FAILURE);
     }
 
-    if (extBgIndex != INT_MAX) {
-        for (int t = 0; t < tilesnumber; t++) {
-            for (int i = 0; i < 64; i++) {
-                if (t >= extBgIndex) {
-                    tiles[t * 64 + i] |= 0x80;
-                }
-            }
-        }
-    }
 	if (lzcompress) {
 		nbbytestowrite = (addblank ? 64 : 0) + (tilesnumber * 64);
 		buftolzin = (unsigned char *) malloc(nbbytestowrite);
@@ -347,6 +338,16 @@ void tiles_savepacked (const char *filename, unsigned char *tiles,int tilesnumbe
 		free(buftolzout);
 		free(buftolzin);
 	} else {
+        if (extBgIndex > 0) {
+            for (int t = 0; t < tilesnumber; t++) {
+                for (int i = 0; i < 64; i++) {
+                    if (t >= extBgIndex) {
+                        tiles[t * 64 + i] |= 0x80;
+                    }
+                }
+            }
+        }
+
 		if (addblank) {
 			for (i = 0; i < 64; i++) {
 				fputc(0, fp);
