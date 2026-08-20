@@ -7,6 +7,7 @@ include ${PVSNESLIB_HOME}/devkitsnes/snes_rules
 
 # WLA-DX SPC700 assembler and linker
 export WLASPC := $(PVSNESLIB_HOME)/devkitsnes/bin/wla-spc700
+export WLASFX := $(PVSNESLIB_HOME)/devkitsnes/bin/wla-superfx
 export WLALINK := $(PVSNESLIB_HOME)/devkitsnes/bin/wlalink
 
 all: sm_spc.asm

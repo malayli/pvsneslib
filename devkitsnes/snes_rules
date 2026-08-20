@@ -44,6 +44,7 @@ endif
 export CC		:= $(PVSNESLIB_HOME)/devkitsnes/bin/816-tcc
 export AS		:= $(PVSNESLIB_HOME)/devkitsnes/bin/wla-65816
 export AS700		:= $(PVSNESLIB_HOME)/devkitsnes/bin/wla-spc700
+export SUPERFX		:= $(PVSNESLIB_HOME)/devkitsnes/bin/wla-superfx
 export LD		:= $(PVSNESLIB_HOME)/devkitsnes/bin/wlalink
 
 export GFXCONV	:=	$(PVSNESLIB_HOME)/devkitsnes/tools/gfx4snes
