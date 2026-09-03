@@ -139,9 +139,9 @@
 .EQU TF_START $80
 .EQU TF_DELAY 2
 .EQU SampleDirectory $0200	; 256 bytes	(64-sample directory)
-.EQU EffectDirectory $0300	; 16*4 bytes	(16 sound effects)
-.EQU StreamAddress $0340  ; 4 bytes       (streaming buffer address)
-.EQU PatternMemory $0380	; 16*8 bytes
+.EQU EffectDirectory $0300	; 32*4 bytes	(32 sound effects)
+.EQU StreamAddress $0380  ; 4 bytes       (streaming buffer address)
+.EQU PatternMemory $03C0	; 16*8 bytes
 .EQU MODULE $1A00
 
 ;--- RAM VARIABLES (Zero Page) ---
@@ -3119,7 +3119,7 @@ StreamStartChannel:
 	mov	sfx_next, #1		; 
 ;--------------------------------------------------------------------------------------
 	mov	SPC_DSPA, #$074		; SRCN = stream
-	mov	SPC_DSPD, #80		;
+	mov	SPC_DSPD, #96		; DIR<<8 + 96*4 = $0380 = StreamAddress
 ;--------------------------------------------------------------------------------------
 	mov	SPC_DSPA, #DSP_KON	; KEYON channel
 	mov	SPC_DSPD, #$80		;
