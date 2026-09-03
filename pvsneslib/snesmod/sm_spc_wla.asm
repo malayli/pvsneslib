@@ -1,19 +1,263 @@
 ;========================================================
-; "SM-SPC"
+; SM-SPC - WLA-DX SPC700 Version
 ;
 ; snesmod spc driver
+; Converted from TASM to WLA-DX syntax
 ;
 ; (c) 2009 Mukunda Johnson
-; Bugfix by KungFuFurby 
+; Bugfix by KungFuFurby
+; WLA-DX conversion by pvsneslib team
 ;========================================================
 
-#define DEBUGINC inc debug \ mov SPC_PORT0, debug
+.MEMORYMAP
+    DEFAULTSLOT 0
+    SLOTSIZE $10000
+    SLOT 0 $0000
+.ENDME
 
-.define LBYTE(z) (z & 0FFh)
-.define HBYTE(z) (z >> 8)
+.ROMBANKMAP
+    BANKSTOTAL 1
+    BANKSIZE $10000
+    BANKS 1
+.ENDRO
 
-.define SPROC TCALL 0
-.define SPROC2 SPROC
+.BANK 0 SLOT 0
+
+;--- MACROS AND DEFINES ---
+.MACRO DEBUGINC
+    inc debug 
+     mov SPC_PORT0, debug
+.ENDM
+.MACRO SPROC
+    TCALL 0
+.ENDM
+.MACRO SPROC2
+    SPROC
+.ENDM
+.MACRO SETDSP ARGS xx,yy
+    mov SPC_DSPA, #xx
+     mov SPC_DSPD, #yy
+.ENDM
+
+;--- CONSTANTS ---
+.EQU SPC_TEST $0F0 ; undocumented
+.EQU SPC_CONTROL $0F1 ; control register
+.EQU SPC_DSP $0F2
+.EQU SPC_DSPA $0F2
+.EQU SPC_DSPD $0F3
+.EQU SPC_PORT0 $0F4 ; i/o port0
+.EQU SPC_PORT1 $0F5 ; i/o port1
+.EQU SPC_PORT2 $0F6 ; i/o port2
+.EQU SPC_PORT3 $0F7 ; i/o port3
+.EQU SPC_FLAGS $0F8 ; custom flags
+.EQU SPC_TIMER0 $0FA ; timer0 setting
+.EQU SPC_TIMER1 $0FB ; timer1 setting
+.EQU SPC_TIMER2 $0FC ; timer2 setting
+.EQU SPC_COUNTER0 $0FD ; timer0 counter
+.EQU SPC_COUNTER1 $0FE ; timer1 counter
+.EQU SPC_COUNTER2 $0FF ; timer2 counter
+.EQU DEBUG_P0 SPC_PORT0
+.EQU DEBUG_P2 SPC_PORT2
+.EQU DSPV_VOL $00
+.EQU DSPV_VOLR $01
+.EQU DSPV_PL $02
+.EQU DSPV_PH $03
+.EQU DSPV_SRCN $04
+.EQU DSPV_ADSR1 $05
+.EQU DSPV_ADSR2 $06
+.EQU DSPV_GAIN $07
+.EQU DSPV_ENVX $08
+.EQU DSPV_OUTX $09
+.EQU DSP_MVOL $0C
+.EQU DSP_MVOLR $1C
+.EQU DSP_EVOL $2C
+.EQU DSP_EVOLR $3C
+.EQU DSP_KON $4C
+.EQU DSP_KOF $5C
+.EQU DSP_FLG $6C
+.EQU DSP_ENDX $7C
+.EQU DSP_EFB $0D
+.EQU DSP_PMON $2D
+.EQU DSP_NON $3D
+.EQU DSP_EON $4D
+.EQU DSP_DIR $5D
+.EQU DSP_ESA $6D
+.EQU DSP_EDL $7D
+.EQU DSP_C0 $0F
+.EQU DSP_C1 $1F
+.EQU DSP_C2 $2F
+.EQU DSP_C3 $3F
+.EQU DSP_C4 $4F
+.EQU DSP_C5 $5F
+.EQU DSP_C6 $6F
+.EQU DSP_C7 $7F
+.EQU FLG_RESET $80
+.EQU FLG_MUTE $40
+.EQU FLG_ECEN $20
+.EQU MOD_IV $00	; INITIAL VOLUME
+.EQU MOD_IT $01	; INITIAL TEMPO
+.EQU MOD_IS $02	; INITIAL SPEED
+.EQU MOD_CV $03	; INITIAL CHANNEL VOLUME
+.EQU MOD_CP $0B	; INITIAL CHANNEL PANNING
+.EQU MOD_EVOL $13	; ECHO VOLUME (LEFT)
+.EQU MOD_EVOLR $14	; ECHO VOLUME (RIGHT)
+.EQU MOD_EDL $15	; ECHO DELAY
+.EQU MOD_EFB $16	; ECHO FEEDBACK
+.EQU MOD_EFIR $17	; ECHO FIR COEFS
+.EQU MOD_EON $1F	; ECHO ENABLE BITS
+.EQU MOD_SEQU $20	; SEQUENCE
+.EQU MOD_PTABLE_L $0E8	; PATTERN TABLE
+.EQU MOD_PTABLE_H $128	; 
+.EQU MOD_ITABLE_L $168	; INSTRUMENT TABLE
+.EQU MOD_ITABLE_H $1A8	; 
+.EQU MOD_STABLE_L $1E8	; SAMPLE TABLE
+.EQU MOD_STABLE_H $228	;
+.EQU INS_FADEOUT $00
+.EQU INS_SAMPLE $01
+.EQU INS_GVOL $02
+.EQU INS_SETPAN $03
+.EQU INS_ENVLEN $04
+.EQU INS_ENVSUS $05
+.EQU INS_ENVLOOPST $06
+.EQU INS_ENVLOOPEND $07
+.EQU INS_ENVDATA $08
+.EQU SAMP_DVOL $00
+.EQU SAMP_GVOL $01
+.EQU SAMP_PITCHBASE $02
+.EQU SAMP_DINDEX $04
+.EQU SAMP_SETPAN $05
+.EQU STATUS_P 32
+.EQU STATUS_E 64
+.EQU STATUS_F 128
+.EQU CF_NOTE 1
+.EQU CF_INSTR 2
+.EQU CF_VCMD 4
+.EQU CF_CMD 8
+.EQU CF_KEYON 16
+.EQU CF_FADE 32
+.EQU CF_SURROUND 64
+.EQU TF_START $80
+.EQU TF_DELAY 2
+.EQU SampleDirectory $0200	; 256 bytes	(64-sample directory)
+.EQU EffectDirectory $0300	; 16*4 bytes	(16 sound effects)
+.EQU StreamAddress $0340  ; 4 bytes       (streaming buffer address)
+.EQU PatternMemory $0380	; 16*8 bytes
+.EQU MODULE $1A00
+
+;--- RAM VARIABLES (Zero Page) ---
+.ENUM $0000
+xfer_address dsb 2
+m0 dsb 2
+m1 dsb 2
+m2 dsb 2
+m3 dsb 2
+m4 dsb 2
+m5 dsb 2
+m6 dsb 2
+next_sample dsb 1
+comms_v dsb 1
+
+evol_l dsb 1
+evol_r dsb 1
+
+module_vol dsb 1
+module_fadeT dsb 1
+module_fadeR dsb 1
+module_fadeC dsb 1
+
+mod_tick dsb 1
+mod_row dsb 1
+mod_position dsb 1
+mod_bpm dsb 1
+mod_speed dsb 1
+mod_active dsb 1
+mod_gvol dsb 1
+
+patt_addr dsb 2
+patt_rows dsb 1
+pattjump_enable dsb 1
+pattjump_index dsb 1
+patt_update dsb 1
+
+ch_start dsb 0
+ch_pitch_l dsb 8
+ch_pitch_h dsb 8
+ch_volume dsb 8
+ch_cvolume dsb 8
+ch_panning dsb 8
+ch_cmem dsb 8
+ch_note dsb 8
+ch_instr dsb 8
+ch_vcmd dsb 8
+ch_command dsb 8
+ch_param dsb 8
+ch_sample dsb 8
+ch_flags dsb 8
+ch_env_y_l dsb 8
+ch_env_y_h dsb 8
+ch_env_node dsb 8
+ch_env_tick dsb 8
+ch_fadeout dsb 8
+ch_end dsb 0
+
+; channel processing variables:
+t_hasdata dsb 1
+t_sampoff dsb 1
+t_volume dsb 1
+t_panning dsb 1
+t_pitch dsb 0
+t_pitch_l dsb 1
+t_pitch_h dsb 1
+t_flags dsb 1
+t_env dsb 1
+
+p_instr dsb 2
+
+STATUS dsb 1
+
+debug dsb 1
+
+
+
+
+;---------------------------
+; sound effects
+;---------------------------
+
+sfx_mask dsb 1
+sfx_next dsb 1
+
+;-----------------------------------------------------------------------------------------
+
+stream_a dsb 1
+stream_write dsb 2
+stream_rate dsb 1
+stream_volL dsb 1
+stream_volR dsb 1
+stream_gain dsb 1
+stream_initial dsb 1
+stream_size dsb 1
+stream_region dsb 1
+
+;*****************************************************************************************
+; sample directory
+;*****************************************************************************************
+
+
+; [extra ram]
+
+;*****************************************************************************************
+; program (load @ 400h)
+;*****************************************************************************************
+
+;--------------------------------------------------------
+.ENDE
+
+;--- CODE ---
+.ORG $400
+.SECTION "SPC_CODE" FORCE
+
+
 
 ;********************************************************
 ; PROTOCOL
@@ -133,17 +377,22 @@
 ; v = volume (15 = max)
 ; p = panning (8 = center)
 ;--------------------------------------------------------
-; TEST	09	Test function
-;
-; >> id vv -- --
-; << -- mm -- --
-;--------------------------------------------------------
-; SSIZE	0A	Set sound region size
+; SSIZE	09	Set sound region size
 ;
 ; >> id vv -- SS
 ; << -- mm -- --
 ;
 ; SS = size of sound region (SS*256 bytes)
+;--------------------------------------------------------
+; PAUSE	0A	Pause function
+;
+; >> id vv -- --
+; << -- mm -- --
+;--------------------------------------------------------
+; RESUME 0B	Resume function
+;
+; >> id vv -- --
+; << -- mm -- --
 ;--------------------------------------------------------
 ; STREAM	Update digital stream
 ;
@@ -187,237 +436,27 @@
 ;*****************************************************************************************
 ; registers
 ;*****************************************************************************************
-SPC_TEST	=0F0h ; undocumented
-SPC_CONTROL	=0F1h ; control register
-SPC_DSP		=0F2h
-SPC_DSPA	=0F2h
-SPC_DSPD	=0F3h
-SPC_PORT0	=0F4h ; i/o port0
-SPC_PORT1	=0F5h ; i/o port1
-SPC_PORT2	=0F6h ; i/o port2
-SPC_PORT3	=0F7h ; i/o port3
-SPC_FLAGS	=0F8h ; custom flags
-SPC_TIMER0	=0FAh ; timer0 setting
-SPC_TIMER1	=0FBh ; timer1 setting
-SPC_TIMER2	=0FCh ; timer2 setting
-SPC_COUNTER0	=0FDh ; timer0 counter
-SPC_COUNTER1	=0FEh ; timer1 counter
-SPC_COUNTER2	=0FFh ; timer2 counter
 
-DEBUG_P0 = SPC_PORT0
-DEBUG_P2 = SPC_PORT2
 
 ;*****************************************************************************************
 ; dsp registers
 ;*****************************************************************************************
-DSPV_VOL	=00h
-DSPV_VOLR	=01h
-DSPV_PL		=02h
-DSPV_PH		=03h
-DSPV_SRCN	=04h
-DSPV_ADSR1	=05h
-DSPV_ADSR2	=06h
-DSPV_GAIN	=07h
-DSPV_ENVX	=08h
-DSPV_OUTX	=09h
 
-DSP_MVOL	=0Ch
-DSP_MVOLR	=1Ch
-DSP_EVOL	=2Ch
-DSP_EVOLR	=3Ch
-DSP_KON		=4Ch
-DSP_KOF		=5Ch
-DSP_FLG		=6Ch
-DSP_ENDX	=7Ch
 
-DSP_EFB		=0Dh
-DSP_PMON	=2Dh
-DSP_NON		=3Dh
-DSP_EON		=4Dh
-DSP_DIR		=5Dh
-DSP_ESA		=6Dh
-DSP_EDL		=7Dh
 
-DSP_C0		=0Fh
-DSP_C1		=1Fh
-DSP_C2		=2Fh
-DSP_C3		=3Fh
-DSP_C4		=4Fh
-DSP_C5		=5Fh
-DSP_C6		=6Fh
-DSP_C7		=7Fh
 
-FLG_RESET	=80h
-FLG_MUTE	=40h
-FLG_ECEN	=20h
-
-#define SETDSP(xx,yy) mov SPC_DSPA, #xx\ mov SPC_DSPD, #yy
 
 ;*****************************************************************************************
 ; module defs
 ;*****************************************************************************************
 
-MOD_IV		=00H	; INITIAL VOLUME
-MOD_IT		=01H	; INITIAL TEMPO
-MOD_IS		=02H	; INITIAL SPEED
-MOD_CV		=03H	; INITIAL CHANNEL VOLUME
-MOD_CP		=0BH	; INITIAL CHANNEL PANNING
-MOD_EVOL	=13H	; ECHO VOLUME (LEFT)
-MOD_EVOLR	=14H	; ECHO VOLUME (RIGHT)
-MOD_EDL		=15H	; ECHO DELAY
-MOD_EFB		=16H	; ECHO FEEDBACK
-MOD_EFIR	=17H	; ECHO FIR COEFS
-MOD_EON		=1FH	; ECHO ENABLE BITS
-MOD_SEQU	=20H	; SEQUENCE
-MOD_PTABLE_L	=0E8H	; PATTERN TABLE
-MOD_PTABLE_H	=128H	; 
-MOD_ITABLE_L	=168H	; INSTRUMENT TABLE
-MOD_ITABLE_H	=1A8H	; 
-MOD_STABLE_L	=1E8H	; SAMPLE TABLE
-MOD_STABLE_H	=228H	;
 
-INS_FADEOUT	=00H
-INS_SAMPLE	=01H
-INS_GVOL	=02H
-INS_SETPAN	=03H
-INS_ENVLEN	=04H
-INS_ENVSUS	=05H
-INS_ENVLOOPST	=06H
-INS_ENVLOOPEND	=07H
-INS_ENVDATA	=08H
 
-SAMP_DVOL	=00H
-SAMP_GVOL	=01H
-SAMP_PITCHBASE	=02H
-SAMP_DINDEX	=04H
-SAMP_SETPAN	=05H
 
 ;*****************************************************************************************
 ; zero-page memory
 ;*****************************************************************************************
 
-xfer_address:	.block 2
-m0:		.block 2
-m1:		.block 2
-m2:		.block 2
-m3:		.block 2
-m4:		.block 2
-m5:		.block 2
-m6:		.block 2
-next_sample:	.block 1
-comms_v:	.block 1 ;communication variable
-
-evol_l:		.block 1
-evol_r:		.block 1
-
-module_vol:	.block 1 ;module volume
-module_fadeT:	.block 1 ;module volume fade target
-module_fadeR:	.block 1 ;module volume fade rate
-module_fadeC:	.block 1 ;timer counter
-
-mod_tick:	.block 1
-mod_row:	.block 1
-mod_pattern_position:	.block 1
-mod_bpm:	.block 1
-mod_speed:	.block 1
-mod_active:	.block 1
-mod_gvol:	.block 1
-
-patt_addr:	.block 2
-patt_rows:	.block 1
-pattjump_enable: .block 1
-pattjump_index:	.block 1
-patt_update:	.block 1 ;PATTERN UPDATE FLAGS
-
-ch_start:
-ch_pitch_l:	.block 8
-ch_pitch_h:	.block 8
-ch_volume:	.block 8 ;0..64
-ch_cvolume:	.block 8 ;0..128 (IT = 0..64)
-ch_panning:	.block 8 ;0..64
-ch_cmem:	.block 8
-ch_note:	.block 8
-ch_instr:	.block 8
-ch_vcmd:	.block 8
-ch_command:	.block 8
-ch_param:	.block 8
-ch_sample:	.block 8
-ch_flags:	.block 8
-ch_env_y_l:	.block 8
-ch_env_y_h:	.block 8
-ch_env_node:	.block 8
-ch_env_tick:	.block 8
-ch_fadeout:	.block 8
-ch_end:
-
-; channel processing variables:
-t_hasdata:	.block 1
-t_sampoff:	.block 1
-t_volume:	.block 1
-t_panning:	.block 1
-t_pitch:
-t_pitch_l:	.block 1
-t_pitch_h:	.block 1
-t_flags:	.block 1
-t_env:		.block 1 ; 0..255
-
-p_instr:	.block 2
-
-STATUS:		.block 1
-STATUS_P	=32
-STATUS_E	=64
-STATUS_F	=128
-
-debug:		.block 1
-
-CF_NOTE		=1
-CF_INSTR	=2
-CF_VCMD		=4
-CF_CMD		=8
-CF_KEYON	=16
-CF_FADE		=32
-CF_SURROUND	=64
-
-TF_START	=80H
-TF_DELAY	=2
-
-
-;---------------------------
-; sound effects
-;---------------------------
-
-sfx_mask:	.block 1
-sfx_next:	.block 1
-
-;-----------------------------------------------------------------------------------------
-
-stream_a:		.block 1
-stream_write:		.block 2
-stream_rate:		.block 1
-stream_volL:		.block 1
-stream_volR:		.block 1
-stream_gain:		.block 1
-stream_initial:		.block 1
-stream_size:		.block 1
-stream_region:		.block 1
-
-;*****************************************************************************************
-; sample directory
-;*****************************************************************************************
-
-SampleDirectory		=0200h	; 256 bytes	(64-sample directory)
-EffectDirectory		=0300h	; 16*4 bytes	(16 sound effects)
-StreamAddress		=0340h  ; 4 bytes       (streaming buffer address)
-PatternMemory		=0380h	; 16*8 bytes
-
-; [extra ram]
-
-;*****************************************************************************************
-; program (load @ 400h)
-;*****************************************************************************************
-
-;--------------------------------------------------------
-.org 400h
 ;--------------------------------------------------------
 	
 ;--------------------------------------------------------
@@ -428,7 +467,7 @@ main:
 	mov	a, #0
 _clrmem:
 	mov	(X)+, a
-	cmp	x, #0F0h
+	cmp	x, #$0F0
 	bne	_clrmem
 	
 	mov	SPC_PORT1, #0		; reset some ports
@@ -439,7 +478,7 @@ _clrmem:
 	mov	module_vol, #255	; reset mvol
 	mov	module_fadeT, #255	; 
 					;----------------
-	call	ResetSound		;
+	call !ResetSound		;
 					;----------------
 	mov	SPC_DSPA, #DSP_MVOL	; reset main volume
 	mov	SPC_DSPD, #80		;
@@ -449,17 +488,17 @@ _clrmem:
 	mov	SPC_DSPA, #DSP_DIR	; set source dir
 	mov	SPC_DSPD, #SampleDirectory >> 8
 	
-	call	ResetMemory
+	call !ResetMemory
 	
-	call	Streaming_Init
-	mov	SPC_CONTROL, #%110
+	call !Streaming_Init
+	mov	SPC_CONTROL, #%00000110
 	
 ;----------------------------------------------------------------------
 	bra	patch1			; patch for it->spc conversion
 					;
-	call	Module_Stop		;
+	call !Module_Stop		;
 	mov	a, #0			;
-	call	Module_Start		;
+	call !Module_Start		;
 patch1:					;
 ;----------------------------------------------------------------------
 
@@ -468,28 +507,28 @@ main_loop:
 ;--------------------------------------------------------
 
 	SPROC2
-	call	ProcessComms
+	call !ProcessComms
 	SPROC
-	call	ProcessFade
+	call !ProcessFade
 	SPROC
-	call	Module_Update
+	call !Module_Update
 	SPROC
-	call	UpdatePorts
+	call !UpdatePorts
 	SPROC
-	call	SFX_Update
+	call !SFX_Update
 	bra	main_loop
 	
 ;--------------------------------------------------------
 UpdatePorts:
 ;--------------------------------------------------------
 	mov	SPC_PORT2, STATUS
-	mov	SPC_PORT3, mod_pattern_position
+	mov	SPC_PORT3, mod_position
 	ret
 	
 ;--------------------------------------------------------
 ResetMemory:
 ;--------------------------------------------------------
-	mov	xfer_address, #MODULE & 0FFh	; reset transfer address
+	mov	xfer_address, #MODULE & $0FF	; reset transfer address
 	mov	xfer_address+1, #MODULE >> 8	;
 	mov	next_sample, #0		; reset sample target
 	ret
@@ -497,13 +536,13 @@ ResetMemory:
 ;--------------------------------------------------------
 ResetSound:
 ;--------------------------------------------------------
-	SETDSP( DSP_KOF, 0FFh );
+	SETDSP( DSP_KOF, $0FF );
 	SETDSP( DSP_FLG, FLG_ECEN );
 	SETDSP( DSP_PMON, 0 );
 	SETDSP( DSP_EVOL, 0 );
 	SETDSP( DSP_EVOLR, 0 );
-	SETDSP( DSP_NON, 00h );
-	SETDSP( DSP_KOF, 000h ); this is weird
+	SETDSP( DSP_NON, $00 );
+	SETDSP( DSP_KOF, $000 ); this is weird
 	
 	mov	sfx_mask, #0
 	ret
@@ -523,7 +562,7 @@ _new_message:
 	and	a, #127			; mask 7 bits
 	asl	a			;
 	mov	x, a			;
-	jmp	[CommandTable+x]	;'
+	jmp [!CommandTable+x]	;'
 ;--------------------------------------------------------
 
 CommandRet:
@@ -533,26 +572,26 @@ CommandRet:
 ;--------------------------------------------------------
 CommandTable:
 ;--------------------------------------------------------
-	.word	CMD_LOAD		; 00h - load module
-	.word	CMD_LOADE		; 01h - load sound
-	.word	CMD_VOL			; 02h - set volume
-	.word	CMD_PLAY		; 03h - play
-	.word	CMD_STOP		; 04h - stop
-	.word	CMD_MVOL		; 05h - set module volume
-	.word	CMD_FADE		; 06h - fade module volume
-	.word	CMD_RES			; 07h - reset
-	.word	CMD_FX			; 08h - sound effect
-	.word	CMD_PAUSE		; 09h - test
-	.word	CMD_SSIZE		; 0Ah - set stream size
-	.word	CMD_RESUME		; 0Bh - play streamed sound
-
+	.DW CMD_LOAD		; $00 - load module
+	.DW CMD_LOADE		; $01 - load sound
+	.DW CMD_VOL			; $02 - set volume
+	.DW CMD_PLAY		; $03 - play
+	.DW CMD_STOP		; $04 - stop
+	.DW CMD_MVOL		; $05 - set module volume
+	.DW CMD_FADE		; $06 - fade module volume
+	.DW CMD_RES			; $07 - reset
+	.DW CMD_FX			; $08 - sound effect
+	.DW CMD_SSIZE		; $09 - set stream size
+	.DW CMD_PAUSE		; $0A - pause module
+	.DW CMD_RESUME		; $0B - resume module
+	
 ;********************************************************
 CMD_LOAD:
 ;********************************************************
-	call	Module_Stop
-	call	ResetMemory		; reset memory system
+	call !Module_Stop
+	call !ResetMemory		; reset memory system
 	
-	call	StartTransfer
+	call !StartTransfer
 	
 	mov	m1, #0
 	
@@ -567,13 +606,13 @@ _wait_for_sourcen:			;
 	mov	y, m1			;
 	clrc				;
 	adc	m1, #4			;
-	call	RegisterSource		;
-	call	StartTransfer		;
+	call !RegisterSource		;
+	call !StartTransfer		;
 					;
 	bra	_wait_for_sourcen	; load next source
 	
 _end_of_sources:			; if p0 == 0:
-	jmp	CommandRet		;
+	jmp !CommandRet		;
 
 ;-------------------------------------------------------------------
 RegisterSource:
@@ -646,9 +685,9 @@ CMD_LOADE:
 	
 	clrc					;Bugfix by KungFuFurby: Fixed sample array misalignment bug.
 	adc	next_sample, #4
-	call	StartTransfer
+	call !StartTransfer
 	
-	jmp	CommandRet
+	jmp !CommandRet
 	
 ;********************************************************
 CMD_VOL:
@@ -658,31 +697,31 @@ CMD_VOL:
 	mov	SPC_DSPD, a
 	mov	SPC_DSPA, #DSP_MVOLR
 	mov	SPC_DSPD, a
-	call	UpdateEchoVolume
-	jmp	CommandRet
+	call !UpdateEchoVolume
+	jmp !CommandRet
 	
 ;********************************************************
 CMD_PLAY:
 ;********************************************************
-	call	Module_Stop
+	call !Module_Stop
 	mov	a, SPC_PORT3
 	and	STATUS, #~STATUS_P
 	mov	SPC_PORT2, STATUS
 	mov	SPC_PORT1, comms_v
-	jmp	Module_Start
+	jmp !Module_Start
 	
 ;********************************************************
 CMD_STOP:
 ;********************************************************
-	call	Module_Stop
-	jmp	CommandRet
+	call !Module_Stop
+	jmp !CommandRet
 	
 ;********************************************************
 CMD_MVOL:
 ;********************************************************
 	mov	module_vol, SPC_PORT3
 	mov	module_fadeT, SPC_PORT3
-	jmp	CommandRet
+	jmp !CommandRet
 
 ;********************************************************
 CMD_FADE:
@@ -691,16 +730,16 @@ CMD_FADE:
 	mov	SPC_PORT2, STATUS
 	mov	module_fadeT, SPC_PORT3
 	mov	module_fadeR, SPC_PORT2
-	jmp	CommandRet
+	jmp !CommandRet
 	
 ;********************************************************
 CMD_RES:
 ;********************************************************
 	mov	SPC_DSPA, #DSP_FLG
-	mov	SPC_DSPD, #11100000b
+	mov	SPC_DSPD, #%11100000
 	clrp
-	mov	SPC_CONTROL, #10000000b ;
-	jmp	0FFC0h
+	mov	SPC_CONTROL, #%10000000 ;
+	jmp !$0FFC0
 	
 ;********************************************************
 CMD_FX:
@@ -708,37 +747,37 @@ CMD_FX:
 	movw	ya, SPC_PORT2
 	movw	m0, ya
 	mov	SPC_PORT1, comms_v
-	jmp	SFX_Play
-
-;********************************************************
-CMD_PAUSE:
-;********************************************************
-	call	Module_Pause
-	jmp	CommandRet
+	jmp !SFX_Play
 
 ;********************************************************
 CMD_SSIZE:
 ;********************************************************
-	call	Module_Stop
+	call !Module_Stop
 	mov	a, SPC_PORT3
-	call	Streaming_Resize
-	jmp	CommandRet
+	call !Streaming_Resize
+	jmp !CommandRet
+
+;********************************************************
+CMD_PAUSE:
+;********************************************************
+	call !Module_Stop
+	jmp !CommandRet
 
 ;********************************************************
 CMD_RESUME:
 ;********************************************************
-	call	Module_Stop
+	call !Module_Stop
 	mov	a, SPC_PORT3
 	and	STATUS, #~STATUS_P
 	mov	SPC_PORT2, STATUS
 	mov	SPC_PORT1, comms_v
-	jmp	Module_Resume
+	jmp !Module_Resume
 
 ;********************************************************
 ; Setup echo...
 ;********************************************************
 SetupEcho:
-	SETDSP( DSP_FLG, 00100000b );
+	SETDSP( DSP_FLG, %00100000 );
 	SETDSP( DSP_EVOL, 0 );
 	SETDSP( DSP_EVOLR, 0 );
 	
@@ -779,7 +818,7 @@ _clearmem:				;
 _copy_coef:				;
 	mov	a, !MODULE+MOD_EFIR+y	;
 	mov	SPC_DSPD, a		;
-	sbc	SPC_DSPA, #10h		;
+	sbc	SPC_DSPA, #$10		;
 	dec	y			;
 	bpl	_copy_coef		;
 	
@@ -819,7 +858,7 @@ _delay_16clks:				;
 	mov	a, !MODULE+MOD_EDL
 	beq	_skip_enable_echo
 
-	call	UpdateEchoVolume
+	call !UpdateEchoVolume
 	mov	SPC_DSPA, #DSP_FLG	; clear ECEN
 	mov	SPC_DSPD, #0
 	ret
@@ -872,33 +911,27 @@ _zerofill_ch:
 	cmp	x, #ch_end
 	bne	_zerofill_ch
 	ret
-
+	
 Module_Stop:
-	call	ResetSound
-	mov	SPC_CONTROL, #%110
+	call !ResetSound
+	mov	SPC_CONTROL, #%00000110
 	mov	mod_active, #0
 	ret
-
-Module_Pause:
-	mov	SPC_CONTROL, #%110
-	mov	mod_active, #0
-	SETDSP(DSP_KOF, 0FFh);
-	ret
-
+	
 ;********************************************************
 ; play module...
 ;
 ; a = initial position
 ;********************************************************
 Module_Start:
-	mov	mod_pattern_position, a
-	call	ResetSound
-	call	Module_ResetChannels
+	mov	mod_position, a
+	call !ResetSound
+	call !Module_ResetChannels
 	mov	mod_active, #1
 	mov	a, !MODULE+MOD_IS
 	mov	mod_speed, a
 	mov	a, !MODULE+MOD_IT
-	call	Module_ChangeTempo
+	call !Module_ChangeTempo
 	mov	a, !MODULE+MOD_IV
 	mov	mod_gvol, a
 
@@ -925,14 +958,13 @@ _cpan_normal:
 	dec	x
 	bpl	_copy_cpan
 	
-	call	SetupEcho
+	call !SetupEcho
 	
-	mov	a, mod_pattern_position
-	call Module_SetPatternPosition
-	call Module_ResetMusicPosition
+	mov	a, mod_position
+	call !Module_ChangePosition
 	
 	; start timer
-	mov	SPC_CONTROL, #%111
+	mov	SPC_CONTROL, #%00000111
 	
 	or	STATUS, #STATUS_P
 	mov	SPC_PORT2, STATUS
@@ -941,25 +973,23 @@ _cpan_normal:
 	ret
 
 ;********************************************************
-; resume module...
-;
-; a = initial position
+; resume module
 ;********************************************************
 Module_Resume:
 	mov	mod_active, #1
 
 	; start timer
-	mov	SPC_CONTROL, #%111
+	mov	SPC_CONTROL, #%00000111
 	
-	SETDSP( DSP_KOF, 0 );	// ??????
+	SETDSP( DSP_KOF, 0 );
 	ret
 
 ;********************************************************
-; set pattern position
+; set sequence position
 ;
 ; a=position
 ;********************************************************
-Module_SetPatternPosition:
+Module_ChangePosition:
 	
 	mov	y, a
 _skip_pattern:
@@ -974,7 +1004,7 @@ _not_plusplusplus:
 	mov	y, #0			;
 	bra	_skip_pattern		;
 _not_end:
-	mov	mod_pattern_position, y
+	mov	mod_position, y
 	mov	y, a
 	mov	a, !MODULE+MOD_PTABLE_L+y
 	mov	patt_addr, a
@@ -985,28 +1015,23 @@ _not_end:
 	mov	patt_rows, a
 	
 	incw	patt_addr
-	ret
-
-;********************************************************
-; set music position
-;********************************************************
-Module_ResetMusicPosition:
+	
 	mov	pattjump_enable, #0
 	mov	mod_tick, #0
 	mov	mod_row, #0
 	ret
-
+	
 ;********************************************************
 ; a = new BPM value
 ;********************************************************
 Module_ChangeTempo:
 	push	x
 	mov	mod_bpm, a
-	mov	SPC_CONTROL, #%110
+	mov	SPC_CONTROL, #%00000110
 	
 	mov	x, a
-	mov	y, #50h
-	mov	a, #00h
+	mov	y, #$50
+	mov	a, #$00
 	div	ya, x
 	mov	SPC_TIMER0, a
 	pop	x
@@ -1065,7 +1090,7 @@ Module_Update:
 	mov	a, SPC_COUNTER0		; check for a tick
 	beq	_no_tick		;
 
-	call	Module_OnTick		;
+	call !Module_OnTick		;
 _no_tick:				;
 	ret				;
 
@@ -1075,10 +1100,10 @@ _no_tick:				;
 Module_OnTick:
 	cmp	mod_tick, #0
 	bne	_skip_read_pattern
-	call	Module_ReadPattern
+	call !Module_ReadPattern
 _skip_read_pattern:
 
-	call	Module_UpdateChannels
+	call !Module_UpdateChannels
 
 	inc	mod_tick		; increment tick until >= SPEED
 	cmp	mod_tick, mod_speed	;
@@ -1088,8 +1113,7 @@ _skip_read_pattern:
 	cmp	pattjump_enable, #0	; catch pattern jump...
 	beq	_no_pattjump		;
 	mov	a, pattjump_index	;
-	call Module_SetPatternPosition	;
-	jmp Module_ResetMusicPosition
+	jmp !Module_ChangePosition	;
 _no_pattjump:				;
 	
 	inc	mod_row			; increment row until > PATTERN_ROWS
@@ -1099,10 +1123,9 @@ _no_pattjump:				;
 	bcc	_exit_tick		;
 _adv_pos:
 	
-	mov	a, mod_pattern_position		; advance position
+	mov	a, mod_position		; advance position
 	inc	a			;
-	call Module_SetPatternPosition	;
-	jmp Module_ResetMusicPosition
+	jmp !Module_ChangePosition	;
 _exit_tick:
 	ret
 
@@ -1126,25 +1149,25 @@ _read_pattern_data:
 	inc	y			;
 	mov	m0, a			;
 	
-	bbc4	m0, _skip_read_note	; test/read new note
+	bbc m0.4, _skip_read_note	; test/read new note
 	mov	a, [patt_addr]+y	;
 	inc	y			;
 	mov	ch_note+x, a		;
 _skip_read_note:			;
 
-	bbc5	m0, _skip_read_instr	; test/read new instrument
+	bbc m0.5, _skip_read_instr	; test/read new instrument
 	mov	a, [patt_addr]+y	;
 	inc	y			;
 	mov	ch_instr+x, a		;
 _skip_read_instr:			;
 
-	bbc6	m0, _skip_read_vcmd	; test/read new vcmd
+	bbc m0.6, _skip_read_vcmd	; test/read new vcmd
 	mov	a, [patt_addr]+y	;
 	inc	y			;
 	mov	ch_vcmd+x, a		;
 _skip_read_vcmd:			;
 
-	bbc7	m0, _skip_read_cmd	; test/read new cmd+param
+	bbc m0.7, _skip_read_cmd	; test/read new cmd+param
 	mov	a, [patt_addr]+y	;
 	inc	y			;
 	mov	ch_command+x, a		;
@@ -1153,9 +1176,9 @@ _skip_read_vcmd:			;
 	mov	ch_param+x, a		;
 _skip_read_cmd:				;
 
-	and	m0, #0Fh		; set flags (lower nibble)
+	and	m0, #$0F		; set flags (lower nibble)
 	mov	a, ch_flags+x		;
-	and	a, #0F0h		;
+	and	a, #$0F0		;
 	or	a, m0			;
 	mov	ch_flags+x, a		;
 	
@@ -1175,7 +1198,7 @@ _rp_nextchannel:
 	ret
 	
 BITS:
-	.byte 1, 2, 4, 8, 16, 32, 64, 128
+	.DB 1, 2, 4, 8, 16, 32, 64, 128
 	
 ;********************************************************
 ; update module channels...
@@ -1191,7 +1214,7 @@ _muc_loop:
 	rol	a
 	mov	t_hasdata, a
 	
-	call	Module_UpdateChannel
+	call !Module_UpdateChannel
 	
 	pop	a
 	
@@ -1222,13 +1245,13 @@ Module_UpdateChannel:
 	cmp	t_hasdata, #0
 	beq	_muc_nopatterndata
 	
-	call	Channel_ProcessData
+	call !Channel_ProcessData
 	bra	_muc_pa
 _muc_nopatterndata:
-	call	Channel_CopyTemps
+	call !Channel_CopyTemps
 _muc_pa:
 	
-	call	Channel_ProcessAudio
+	call !Channel_ProcessAudio
 	ret
 
 ;********************************************************	
@@ -1241,20 +1264,20 @@ Channel_ProcessData:
 	mov	a, ch_flags+x
 	mov	m6, a
 	
-	bbc0	m6, _cpd_no_note	; test for note
+	bbc m6.0, _cpd_no_note	; test for note
 	mov	a, ch_note+x		;
 	cmp	a, #254			; test notecut/noteoff
 	beq	_cpd_notecut		;
 	bcs	_cpd_noteoff		;
 	
 _cpd_note:				; dont start note on glissando
-	bbc3	m6, _cpdn_test_for_glis	;
+	bbc m6.3, _cpdn_test_for_glis	;
 	mov	a, ch_command+x		;
 	cmp	a, #7			;
 	beq	_cpd_note_next		;
 _cpdn_test_for_glis:			;
 					;
-	call	Channel_StartNewNote	;
+	call !Channel_StartNewNote	;
 	bra	_cpd_note_next		;
 	
 _cpd_notecut:				;notecut:
@@ -1268,7 +1291,7 @@ _cpd_noteoff:				;noteoff:
 	
 _cpd_note_next:
 	
-	bbc1	m6, _cpdn_no_instr	; apply instrument SETPAN
+	bbc m6.1, _cpdn_no_instr	; apply instrument SETPAN
 	mov	y, #INS_SETPAN		;
 	mov	a, [p_instr]+y		;
 	bmi	_cpdi_nsetpan		;
@@ -1301,7 +1324,7 @@ _cpd_no_note:				;
 	
 	and	a, #(CF_NOTE|CF_INSTR)	; test for note or instrument
 	beq	_no_note_or_instr	;
-	call	Channel_ResetVolume	; and reset volume things
+	call !Channel_ResetVolume	; and reset volume things
 _no_note_or_instr:			;
 
 _cpd_non0:				; nonzero ticks: just update audio
@@ -1311,15 +1334,15 @@ _cpd_non0:				; nonzero ticks: just update audio
 	mov	a, ch_flags+x		; test and process volume command
 	and	a, #CF_VCMD		;
 	beq	_skip_vcmd		;
-	call	Channel_ProcessVolumeCommand
+	call !Channel_ProcessVolumeCommand
 _skip_vcmd:
 	SPROC
-	call	Channel_CopyTemps	; copy t values
+	call !Channel_CopyTemps	; copy t values
 	
 	mov	a, ch_flags+x		; test and process command
 	and	a, #CF_CMD		;
 	beq	_skip_cmd		;
-	call	Channel_ProcessCommand	;
+	call !Channel_ProcessCommand	;
 _skip_cmd:
 	
 	ret
@@ -1388,7 +1411,7 @@ Channel_ProcessAudio:
 	mov	m5+1, a				;
 _cpa_nsample:					;
 	
-	call	Channel_ProcessEnvelope
+	call !Channel_ProcessEnvelope
 	
 	mov	a, ch_flags+x			; process FADE
 	and	a, #CF_FADE			;
@@ -1474,7 +1497,7 @@ _calcvol_skip_gvol:				;
 	lsr	a				; 
 	mov	m2, a
 	
-	cmp	t_flags, #80h
+	cmp	t_flags, #$80
 	bcs	_dont_hack_gain
 	cmp	a, #0
 	bne	_gain_not_zero			; map value 0 to fast linear decrease
@@ -1535,7 +1558,7 @@ _cpa_nsurround:					;
 	
 	asl	m3				; m3 = m3*2 + LUT_FTAB base
 	rol	a				;
-	adc	m3, #(LUT_FTAB&0FFh)		;
+	adc	m3, #(LUT_FTAB&$0FF)		;
 	adc	a, #(LUT_FTAB>>8)			; 
 	mov	m3+1, a				;
 	
@@ -1629,8 +1652,8 @@ _cpa_nstart:
 	mov	SPC_DSPD, m4+1			;
 	inc	SPC_DSPA			;
 	inc	SPC_DSPA			;------------------------------
-	mov	SPC_DSPD, #00h			; disable ADSR
-	or	SPC_DSPA, #07h			; set GAIN
+	mov	SPC_DSPD, #$00			; disable ADSR
+	or	SPC_DSPA, #$07			; set GAIN
 	mov	SPC_DSPD, m2			;------------------------------
 
 	;----------------------------------------
@@ -1654,7 +1677,7 @@ Channel_ProcessEnvelope:
 	mov	a, ch_flags+x			; start fade on KEYOFF
 	and	a, #CF_KEYON			;
 	beq	_env_quit			;
-	jmp	_env_setfade			;
+	jmp !_env_setfade			;
 _env_quit:
 	ret					;
 _envelope_valid:				;
@@ -1791,7 +1814,7 @@ Channel_ProcessVolumeCommand:
 	mov	a, ch_volume+x
 	mov	y, ch_vcmd+x
 	mov	m0, y
-	call	do_vcmd
+	call !do_vcmd
 	mov	ch_volume+x, a
 	ret
 	
@@ -1891,11 +1914,11 @@ vcmd_pan:
 	ret				;
 
 command_memory_map:	
-	.byte 00h, 00h, 00h, 10h, 20h, 20h, 30h, 70h, 00h
+	.DB $00, $00, $00, $10, $20, $20, $30, $70, $00
 	;       A    B    C    D    E    F    G    H    I
-	.byte 40h, 10h, 10h, 00h, 10h, 50h, 10h, 80h, 70h
+	.DB $40, $10, $10, $00, $10, $50, $10, $80, $70
 	;       J    K    L    M    N    O    P    Q    R
-	.byte 60h, 00h, 70h, 00h, 10h, 00h, 70h, 00h
+	.DB $60, $00, $70, $00, $10, $00, $70, $00
 	;       S    T    U    V    W    X    Y    Z
 	
 ;********************************************************
@@ -1912,32 +1935,32 @@ Channel_ProcessCommandMemory:
 	mov	y, a
 	
 	
-	cmp	y, #70h			; <7 : single param
+	cmp	y, #$70			; <7 : single param
 	bcc	_cpcm_single		;
 ;--------------------------------------------------------
 _cpcm_double:				; >=7: double param
 ;--------------------------------------------------------
 
-	mov	a, !PatternMemory-10h+y
+	mov	a, !PatternMemory-$10+y
 	mov	m0, a
 	mov	a, ch_param+x
-	cmp	a, #10h
+	cmp	a, #$10
 	bcc	_cpcmd_h_clr
 	push	a
-	and	m0, #0Fh
+	and	m0, #$0F
 	or	a, m0
 	mov	m0, a
 	pop	a
 _cpcmd_h_clr:
-	and	a, #0Fh
+	and	a, #$0F
 	beq	_cpcmd_l_clr
-	and	m0, #0F0h
+	and	m0, #$0F0
 	or	a, m0
 	mov	m0, a
 _cpcmd_l_clr:
 	mov	a, m0
 	mov	ch_param+x, a
-	mov	!PatternMemory-10h+y, a
+	mov	!PatternMemory-$10+y, a
 	ret
 ;--------------------------------------------------------
 _cpcm_single:
@@ -1945,10 +1968,10 @@ _cpcm_single:
 
 	mov	a, ch_param+x
 	beq	_cpcms_clear
-	mov	!PatternMemory-10h+y, a
+	mov	!PatternMemory-$10+y, a
 	ret
 _cpcms_clear:
-	mov	a, !PatternMemory-10h+y
+	mov	a, !PatternMemory-$10+y
 	mov	ch_param+x, a	
 _cpc_quit:
 	ret
@@ -1962,7 +1985,7 @@ Channel_ProcessCommand:
 	
 	cmp	mod_tick, #0		; process MEMORY on t0
 	bne	_cpc_nott0		;
-	call	Channel_ProcessCommandMemory
+	call !Channel_ProcessCommandMemory
 _cpc_nott0:
 
 	mov	y, ch_command+x		; setup jump address
@@ -1981,68 +2004,68 @@ _cpc_nott0:
 	;-------------------------------
 	
 cpc_jump:
-	jmp	$0011
+	jmp !$0011
 	
 ; note: tasm has some kind of bug that removes the 16th character
 ; in macro args (...?)
 ;-----------------------------------------------------------------------
 CMD_JUMPTABLE_L:
 ;-----------------------------------------------------------------------
-	.byte	LBYTE(Command_SetSpeed)			; Axx
-	.byte	LBYTE(Command_SetPosit)		; Bxx
-	.byte	LBYTE(Command_PatBreak)		; Cxx
-	.byte	LBYTE(Command_VSld)		; Dxy
-	.byte	LBYTE(Command_PitSldDo)		; Exy
-	.byte	LBYTE(Command_PitSldUp)		; Fxy
-	.byte	LBYTE(Command_Glissand)		; Gxx
-	.byte	LBYTE(Command_Vibrato)			; Hxy
-	.byte	LBYTE(Command_Tremor)			; Ixy
-	.byte	LBYTE(Command_Arpeggio)			; Jxy
-	.byte	LBYTE(Command_VSldVibr)	; Kxy
-	.byte	LBYTE(Command_VSldGlis)	; Lxy
-	.byte	LBYTE(Command_SetChVol)	; Mxx
-	.byte	LBYTE(Command_ChaVolSl)	; Nxy
-	.byte	LBYTE(Command_SampOfs)		; Oxx
-	.byte	LBYTE(Command_PanSld)		; Pxy
-	.byte	LBYTE(Command_RtrigNot)		; Qxy
-	.byte	LBYTE(Command_Tremolo)			; Rxy
-	.byte	LBYTE(Command_Extended)			; Sxy
-	.byte	LBYTE(Command_Tempo)			; Txy
-	.byte	LBYTE(Command_FineVibr)		; Uxy
-	.byte	LBYTE(Command_SetGlbVo)		; Vxx
-	.byte	LBYTE(Command_GlbVolSl)	; Wxy
-	.byte	LBYTE(Command_SetPan)		; Xxx
-	.byte	LBYTE(Command_Panbrell)		; Yxy
-	.byte	LBYTE(Command_MidiMac)		; Zxy
+	.DB <Command_SetSpeed			; Axx
+	.DB <Command_SetPosit		; Bxx
+	.DB <Command_PatBreak		; Cxx
+	.DB <Command_VSld		; Dxy
+	.DB <Command_PitSldDo		; Exy
+	.DB <Command_PitSldUp		; Fxy
+	.DB <Command_Glissand		; Gxx
+	.DB <Command_Vibrato			; Hxy
+	.DB <Command_Tremor			; Ixy
+	.DB <Command_Arpeggio			; Jxy
+	.DB <Command_VSldVibr	; Kxy
+	.DB <Command_VSldGlis	; Lxy
+	.DB <Command_SetChVol	; Mxx
+	.DB <Command_ChaVolSl	; Nxy
+	.DB <Command_SampOfs		; Oxx
+	.DB <Command_PanSld		; Pxy
+	.DB <Command_RtrigNot		; Qxy
+	.DB <Command_Tremolo			; Rxy
+	.DB <Command_Extended			; Sxy
+	.DB <Command_Tempo			; Txy
+	.DB <Command_FineVibr		; Uxy
+	.DB <Command_SetGlbVo		; Vxx
+	.DB <Command_GlbVolSl	; Wxy
+	.DB <Command_SetPan		; Xxx
+	.DB <Command_Panbrell		; Yxy
+	.DB <Command_MidiMac		; Zxy
 ;-----------------------------------------------------------------------
 CMD_JUMPTABLE_H:
 ;-----------------------------------------------------------------------
-	.byte	HBYTE(Command_SetSpeed)			; Axx
-	.byte	HBYTE(Command_SetPosit)		; Bxx
-	.byte	HBYTE(Command_PatBreak)		; Cxx
-	.byte	HBYTE(Command_VSld)		; Dxy
-	.byte	HBYTE(Command_PitSldDo)		; Exy
-	.byte	HBYTE(Command_PitSldUp)		; Fxy
-	.byte	HBYTE(Command_Glissand)		; Gxx
-	.byte	HBYTE(Command_Vibrato)			; Hxy
-	.byte	HBYTE(Command_Tremor)			; Ixy
-	.byte	HBYTE(Command_Arpeggio)			; Jxy
-	.byte	HBYTE(Command_VSldVibr)	; Kxy
-	.byte	HBYTE(Command_VSldGlis)	; Lxy
-	.byte	HBYTE(Command_SetChVol)	; Mxx
-	.byte	HBYTE(Command_ChaVolSl)	; Nxy
-	.byte	HBYTE(Command_SampOfs)		; Oxx
-	.byte	HBYTE(Command_PanSld)		; Pxy
-	.byte	HBYTE(Command_RtrigNot)		; Qxy
-	.byte	HBYTE(Command_Tremolo)			; Rxy
-	.byte	HBYTE(Command_Extended)			; Sxy
-	.byte	HBYTE(Command_Tempo)			; Txy
-	.byte	HBYTE(Command_FineVibr)		; Uxy
-	.byte	HBYTE(Command_SetGlbVo)		; Vxx
-	.byte	HBYTE(Command_GlbVolSl)	; Wxy
-	.byte	HBYTE(Command_SetPan)		; Xxx
-	.byte	HBYTE(Command_Panbrell)		; Yxy
-	.byte	HBYTE(Command_MidiMac)		; Zxy
+	.DB >Command_SetSpeed			; Axx
+	.DB >Command_SetPosit		; Bxx
+	.DB >Command_PatBreak		; Cxx
+	.DB >Command_VSld		; Dxy
+	.DB >Command_PitSldDo		; Exy
+	.DB >Command_PitSldUp		; Fxy
+	.DB >Command_Glissand		; Gxx
+	.DB >Command_Vibrato			; Hxy
+	.DB >Command_Tremor			; Ixy
+	.DB >Command_Arpeggio			; Jxy
+	.DB >Command_VSldVibr	; Kxy
+	.DB >Command_VSldGlis	; Lxy
+	.DB >Command_SetChVol	; Mxx
+	.DB >Command_ChaVolSl	; Nxy
+	.DB >Command_SampOfs		; Oxx
+	.DB >Command_PanSld		; Pxy
+	.DB >Command_RtrigNot		; Qxy
+	.DB >Command_Tremolo			; Rxy
+	.DB >Command_Extended			; Sxy
+	.DB >Command_Tempo			; Txy
+	.DB >Command_FineVibr		; Uxy
+	.DB >Command_SetGlbVo		; Vxx
+	.DB >Command_GlbVolSl	; Wxy
+	.DB >Command_SetPan		; Xxx
+	.DB >Command_Panbrell		; Yxy
+	.DB >Command_MidiMac		; Zxy
 
 ;=======================================================================
 Command_SetSpeed:
@@ -2066,7 +2089,7 @@ Command_PatBreak:
 	; nonzero params are not supported
 	;
 	bne	cmd_exit1			;on tick0:
-	mov	pattjump_index, mod_pattern_position	; index = position+1
+	mov	pattjump_index, mod_position	; index = position+1
 	inc	pattjump_index			; enable pattern jump(break)
 	mov	pattjump_enable, #1		;
 	ret
@@ -2075,14 +2098,14 @@ Command_VSld:
 ;=======================================================================
 	mov	m0, t_volume			; slide volume
 	mov	m0+1, #64			;
-	call	DoVolumeSlide			;
+	call !DoVolumeSlide			;
 	mov	t_volume, a			;
 	mov	ch_volume+x, a			;
 	ret					;
 ;=======================================================================
 Command_PitSldDo:
 ;=======================================================================
-	call	PitchSlide_Load			; m0 = slide amount
+	call !PitchSlide_Load			; m0 = slide amount
 	movw	ya, t_pitch			; pitch -= m0
 	subw	ya, m0				;
 	bmi	_exx_zero			; saturate lower to 0
@@ -2102,11 +2125,11 @@ _exx_zero:
 ;=======================================================================
 Command_PitSldUp:
 ;=======================================================================
-	call	PitchSlide_Load			; m0 = slide amount
+	call !PitchSlide_Load			; m0 = slide amount
 	movw	ya, t_pitch			;
 	addw	ya, m0				;
-	cmp	y, #01Ah			;
-	bcs	_fxx_max			; clamp upper bound to 1A00H
+	cmp	y, #$01A			;
+	bcs	_fxx_max			; clamp upper bound to $1A00
 	movw	t_pitch, ya			;
 	mov	ch_pitch_l+x, a			;
 	mov	ch_pitch_h+x, y			;
@@ -2114,7 +2137,7 @@ Command_PitSldUp:
 ;-----------------------------------------------------------------------
 _fxx_max:
 ;-----------------------------------------------------------------------
-	mov	y, #01Ah			; max pitch
+	mov	y, #$01A			; max pitch
 	mov	a, #0				;
 	movw	t_pitch, ya			;
 	mov	ch_pitch_l+x, a			;
@@ -2171,19 +2194,19 @@ _gxx_set:					; pitch = target
 ;=======================================================================
 Command_Vibrato:
 ;=======================================================================
-	mov	a, #70h
+	mov	a, #$70
 	mov	m0, x
 	clrc
 	adc	a, m0
 	mov	y, a
-	mov	a, !PatternMemory-10h+y
+	mov	a, !PatternMemory-$10+y
 	
 	mov	m0, a
-	and	m0, #0Fh
+	and	m0, #$0F
 	
 	lsr	a				; cmem += x*4
 	lsr	a				;
-	and	a, #111100b			;
+	and	a, #%111100			;
 	clrc					;
 	adc	a, ch_cmem+x			;
 	mov	ch_cmem+x, a			;
@@ -2265,7 +2288,7 @@ _jxx_x:
 	
 _jxx_add:
 	
-	and	a, #0F0h
+	and	a, #$0F0
 	asl	a
 	mov	m0+1, #0
 	rol	m0+1
@@ -2284,13 +2307,13 @@ _jxx_y:
 ;=======================================================================
 Command_VSldVibr:
 ;=======================================================================
-	call	Command_Vibrato
+	call !Command_Vibrato
 	
 	mov	a, ch_param+x
 	mov	y, mod_tick
 	mov	m0, t_volume			; slide volume
 	mov	m0+1, #64			;
-	call	DoVolumeSlide			;
+	call !DoVolumeSlide			;
 	mov	t_volume, a			;
 	mov	ch_volume+x, a			;
 cmd_exit2:
@@ -2319,7 +2342,7 @@ Command_ChaVolSl:
 	mov	m0, a				; 
 	mov	m0+1, #64			;
 	mov	a, ch_param+x			;
-	call	DoVolumeSlide			;
+	call !DoVolumeSlide			;
 	mov	ch_cvolume+x, a			;
 	ret					;
 	
@@ -2336,7 +2359,7 @@ Command_PanSld:
 	xcn	a
 	mov	m0, t_panning			; slide panning
 	mov	m0+1, #64			;
-	call	DoVolumeSlide			;
+	call !DoVolumeSlide			;
 	mov	t_panning, a			;
 	mov	ch_panning+x, a			;
 	ret					;
@@ -2345,7 +2368,7 @@ Command_PanSld:
 Command_RtrigNot:
 ;=======================================================================
 	
-	and	a, #0Fh				; m0 = y == 0 ? 1 : x
+	and	a, #$0F				; m0 = y == 0 ? 1 : x
 	bne	_crn_x1				;
 	inc	a				;
 _crn_x1:					;	
@@ -2369,31 +2392,31 @@ _crn_cmem_n0:					;else:
 	;----------------------------------------
 	mov	a, ch_param+x
 	xcn	a
-	and	a, #0Fh
+	and	a, #$0F
 	mov	m1, a
 	asl	a
 	push	x
 	mov	x, a
 	mov	a, t_volume
 	clrc
-	jmp	[rnvtable+x]
+	jmp [!rnvtable+x]
 rnvtable:
-	.word	rnv_0
-	.word	rnv_1
-	.word	rnv_2
-	.word	rnv_3
-	.word	rnv_4
-	.word	rnv_5
-	.word	rnv_6
-	.word	rnv_7
-	.word	rnv_8
-	.word	rnv_9
-	.word	rnv_A
-	.word	rnv_B
-	.word	rnv_C
-	.word	rnv_D
-	.word	rnv_E
-	.word	rnv_F
+	.DW rnv_0
+	.DW rnv_1
+	.DW rnv_2
+	.DW rnv_3
+	.DW rnv_4
+	.DW rnv_5
+	.DW rnv_6
+	.DW rnv_7
+	.DW rnv_8
+	.DW rnv_9
+	.DW rnv_A
+	.DW rnv_B
+	.DW rnv_C
+	.DW rnv_D
+	.DW rnv_E
+	.DW rnv_F
 	
 rnv_1:	dec	a
 	bra	_rnv_sat0
@@ -2456,7 +2479,7 @@ Command_Tremolo:				; unimplemented
 Command_Extended:
 ;=======================================================================
 	xcn	a				; setup jump to:
-	and	a, #0Fh				; CmdExTab[x]
+	and	a, #$0F				; CmdExTab[x]
 	mov	y, a				;
 	mov	a, !CmdExTab_L+y		;
 	mov	!cmdex_jmp+1, a			;
@@ -2464,49 +2487,49 @@ Command_Extended:
 	mov	!cmdex_jmp+2, a			;
 	
 	mov	a, ch_param+x			; a = y
-	and	a, #0Fh				; y = tick
+	and	a, #$0F				; y = tick
 	mov	y, mod_tick			; z = tick0
 	
 cmdex_jmp:
-	jmp	0a0bh
+	jmp !$0A0B
 	
 SCommand_Null:
 	ret
 	
 CmdExTab_L:
-	.byte	LBYTE(SCommand_Echo)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Panning)
-	.byte	LBYTE(SCommand_SoundCo)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_NoteCut)
-	.byte	LBYTE(SCommand_NoteDel)
-	.byte	LBYTE(SCommand_Null)
-	.byte	LBYTE(SCommand_Cue)
+	.DB <SCommand_Echo
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_Panning
+	.DB <SCommand_SoundCo
+	.DB <SCommand_Null
+	.DB <SCommand_Null
+	.DB <SCommand_NoteCut
+	.DB <SCommand_NoteDel
+	.DB <SCommand_Null
+	.DB <SCommand_Cue
 CmdExTab_H:
-	.byte	HBYTE(SCommand_Echo)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Panning)
-	.byte	HBYTE(SCommand_SoundCo)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_NoteCut)
-	.byte	HBYTE(SCommand_NoteDel)
-	.byte	HBYTE(SCommand_Null)
-	.byte	HBYTE(SCommand_Cue)
+	.DB >SCommand_Echo
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_Panning
+	.DB >SCommand_SoundCo
+	.DB >SCommand_Null
+	.DB >SCommand_Null
+	.DB >SCommand_NoteCut
+	.DB >SCommand_NoteDel
+	.DB >SCommand_Null
+	.DB >SCommand_Cue
 
 ; S01 = turn on echo
 ; S02 = turn off echo
@@ -2538,7 +2561,7 @@ _sce_disable_one:
 	mov	SPC_DSPD, a
 	ret
 _sce_enable_all:
-	mov	SPC_DSPD, #0FFh
+	mov	SPC_DSPD, #$0FF
 	ret
 _sce_disable_all:
 	mov	SPC_DSPD, #0
@@ -2597,13 +2620,13 @@ SCommand_Cue:
 ;=======================================================================
 	bne	cmd_exit3			;on tick0:
 	inc	STATUS				; increment CUE value
-	and	STATUS, #11101111b		; in status and send to
+	and	STATUS, #%11101111		; in status and send to
 	mov	SPC_PORT2, STATUS		; snes
 	ret					;
 ;=======================================================================
 Command_Tempo:
 ;=======================================================================
-	cmp	a, #20h
+	cmp	a, #$20
 	bcc	_temposlide
 	cmp	a, #80
 	bcs	_txxu1
@@ -2611,21 +2634,21 @@ Command_Tempo:
 _txxu1:	cmp	a, #200
 	bcc	_txxu2
 	mov	a, #200
-_txxu2:	call	Module_ChangeTempo
-	mov	SPC_CONTROL, #%111
+_txxu2:	call !Module_ChangeTempo
+	mov	SPC_CONTROL, #%00000111
 	ret
 _temposlide:
-	cmp	a, #10h
+	cmp	a, #$10
 	bcc	_txx_down
-	and	a, #0Fh
+	and	a, #$0F
 	clrc
 	adc	a, mod_bpm
 	cmp	a, #200
 	bcc	_txx_satH
 	mov	a, #200
 _txx_satH:
-	call	Module_ChangeTempo
-	mov	SPC_CONTROL, #%111
+	call !Module_ChangeTempo
+	mov	SPC_CONTROL, #%00000111
 	ret
 _txx_down:
 	mov	m0, a
@@ -2635,8 +2658,8 @@ _txx_down:
 	cmp	a, #80
 	bcs	_txx_satH
 	mov	a, #80
-	call	Module_ChangeTempo
-	mov	SPC_CONTROL, #%111
+	call !Module_ChangeTempo
+	mov	SPC_CONTROL, #%00000111
 	ret
 ;=======================================================================
 Command_FineVibr:				; unimplemented
@@ -2647,9 +2670,9 @@ Command_FineVibr:				; unimplemented
 Command_SetGlbVo:
 ;=======================================================================
 	bne	cmd_exit4			; set global volume on tick0
-	cmp	a, #80h				;
-	bcc	_vxx_nsat			; saturate to 80h
-	mov	a, #80h				;
+	cmp	a, #$80				;
+	bcc	_vxx_nsat			; saturate to $80
+	mov	a, #$80				;
 _vxx_nsat:					;
 	mov	mod_gvol, a			;
 cmd_exit4:					;
@@ -2659,7 +2682,7 @@ Command_GlbVolSl:
 ;=======================================================================
 	mov	m0, mod_gvol			; slide global volume
 	mov	m0+1, #128			; max 128
-	call	DoVolumeSlide			;
+	call !DoVolumeSlide			;
 	mov	mod_gvol, a			;
 	ret					;
 ;=======================================================================
@@ -2695,17 +2718,17 @@ DoVolumeSlide:
 ;-----------------------------------------------------------------------
 	mov	m1, a			; test param for slide behavior
 					;-------------------------------
-	and	a, #0Fh			; Dx0 : slide up
+	and	a, #$0F			; Dx0 : slide up
 	beq	_dvs_up			;-------------------------------
 	mov	a, m1			; D0y : slide down
-	and	a, #0F0h		;
+	and	a, #$0F0		;
 	beq	_dvs_down		;-------------------------------
 	mov	a, m1			; DxF : slide up fine
-	and	a, #0Fh			;
-	cmp	a, #0Fh			;
+	and	a, #$0F			;
+	cmp	a, #$0F			;
 	beq	_dvs_fineup		;-------------------------------
 	mov	a, m1			; DFy : slide down fine
-	cmp	a, #0F0h		;
+	cmp	a, #$0F0		;
 	bcs	_dvs_finedown		;
 _dvs_quit:				;-------------------------------
 	mov	a, m0			; (invalid)
@@ -2717,7 +2740,7 @@ _dvs_finedown:				; DFy
 	cmp	y, #0			;on tick0:
 	bne	_dvs_quit		;
 	mov	a, m0			; a = volume - y
-	and	m1, #0Fh		;
+	and	m1, #$0F		;
 	sbc	a, m1			;
 	bcs	_dvs_exit		; saturate lower bound to 0
 	mov	a, #0			;
@@ -2729,7 +2752,7 @@ _dvs_fineup:				; DxF
 	bne	_dvs_quit		;
 	mov	a, m1			; a = x + volume
 	xcn	a			;
-	and	a, #0Fh			;
+	and	a, #$0F			;
 	clrc				;
 	adc	a, m0			;
 	cmp	a, m0+1			; saturate upper to [m0.h]
@@ -2739,7 +2762,7 @@ _dvs_fineup:				; DxF
 ;-----------------------------------------------------------------------
 _dvs_down:				; D0y
 ;-----------------------------------------------------------------------
-	cmp	m1,#0Fh			;on tick0 OR y == 15
+	cmp	m1,#$0F			;on tick0 OR y == 15
 	beq	_dvsd_15		;
 	cmp	y, #0			;
 	beq	_dvs_quit		;
@@ -2753,14 +2776,14 @@ _dvsd_15:				;
 ;-----------------------------------------------------------------------
 _dvs_up:				;
 ;-----------------------------------------------------------------------
-	cmp	m1, #0F0h		;on tick0 OR x == 15
+	cmp	m1, #$0F0		;on tick0 OR x == 15
 	beq	_dvsu_15		;
 	cmp	y, #0			;
 	beq	_dvs_quit		;
 _dvsu_15:				;
 	mov	a, m1			; a = x + volume
 	xcn	a			;
-	and	a, #0Fh			;
+	and	a, #$0F			;
 	clrc				;
 	adc	a, m0			;
 	cmp	a, m0+1			; saturte upper to [m0.h]
@@ -2776,9 +2799,9 @@ _dvsu_15:				;
 ;=======================================================================
 PitchSlide_Load:
 ;=======================================================================
-	cmp	a, #0F0h			; Fx: fine slide
+	cmp	a, #$0F0			; Fx: fine slide
 	bcs	_psl_fine			;
-	cmp	a, #0E0h			; Ex: extra fine slide
+	cmp	a, #$0E0			; Ex: extra fine slide
 	bcs	_psl_exfine			;
 ;-----------------------------------------------------------------------
 _psl_normal:
@@ -2798,7 +2821,7 @@ _psl_fine:
 	cmp	y, #0				; no slide on not tick0
 	bne	_psl_zero			;
 	mov	m0+1, #0			; m0 = y*4
-	and	a, #0Fh				;	
+	and	a, #$0F				;	
 	asl	a				;
 	asl	a				;
 	mov	m0, a				;
@@ -2809,7 +2832,7 @@ _psl_exfine:
 	cmp	y, #0				; no slide on not tick0
 	bne	_psl_zero			;
 	mov	m0+1, #0			; m0 = y
-	and	a, #0Fh				;	
+	and	a, #$0F				;	
 	mov	m0, a				;
 	ret					;
 ;-----------------------------------------------------------------------
@@ -2822,88 +2845,88 @@ _psl_zero:
 ;************************************************************************************************************************************************
 
 LUT_DIV3:
-	.byte 0, 0, 0, 1, 1, 1, 2, 2, 2
-	.byte 3, 3, 3, 4, 4, 4, 5, 5, 5
-	.byte 6, 6, 6, 7, 7, 7, 8, 8, 8
-	.byte 9, 9, 9,10,10
+	.DB 0, 0, 0, 1, 1, 1, 2, 2, 2
+	.DB 3, 3, 3, 4, 4, 4, 5, 5, 5
+	.DB 6, 6, 6, 7, 7, 7, 8, 8, 8
+	.DB 9, 9, 9,10,10
 	
 LUT_FTAB:
-        .word 02174h, 0217Bh, 02183h, 0218Bh, 02193h, 0219Ah, 021A2h, 021AAh, 021B2h, 021BAh, 021C1h, 021C9h, 021D1h, 021D9h, 021E1h, 021E8h
-        .word 021F0h, 021F8h, 02200h, 02208h, 02210h, 02218h, 0221Fh, 02227h, 0222Fh, 02237h, 0223Fh, 02247h, 0224Fh, 02257h, 0225Fh, 02267h
-        .word 0226Fh, 02277h, 0227Fh, 02287h, 0228Fh, 02297h, 0229Fh, 022A7h, 022AFh, 022B7h, 022BFh, 022C7h, 022CFh, 022D7h, 022DFh, 022E7h
-        .word 022EFh, 022F7h, 022FFh, 02307h, 0230Fh, 02317h, 0231Fh, 02328h, 02330h, 02338h, 02340h, 02348h, 02350h, 02358h, 02361h, 02369h
-        .word 02371h, 02379h, 02381h, 0238Ah, 02392h, 0239Ah, 023A2h, 023AAh, 023B3h, 023BBh, 023C3h, 023CBh, 023D4h, 023DCh, 023E4h, 023EDh
-        .word 023F5h, 023FDh, 02406h, 0240Eh, 02416h, 0241Fh, 02427h, 0242Fh, 02438h, 02440h, 02448h, 02451h, 02459h, 02462h, 0246Ah, 02472h
-        .word 0247Bh, 02483h, 0248Ch, 02494h, 0249Dh, 024A5h, 024AEh, 024B6h, 024BEh, 024C7h, 024CFh, 024D8h, 024E0h, 024E9h, 024F2h, 024FAh
-        .word 02503h, 0250Bh, 02514h, 0251Ch, 02525h, 0252Dh, 02536h, 0253Fh, 02547h, 02550h, 02559h, 02561h, 0256Ah, 02572h, 0257Bh, 02584h
-        .word 0258Ch, 02595h, 0259Eh, 025A7h, 025AFh, 025B8h, 025C1h, 025C9h, 025D2h, 025DBh, 025E4h, 025ECh, 025F5h, 025FEh, 02607h, 0260Fh
-        .word 02618h, 02621h, 0262Ah, 02633h, 0263Ch, 02644h, 0264Dh, 02656h, 0265Fh, 02668h, 02671h, 0267Ah, 02682h, 0268Bh, 02694h, 0269Dh
-        .word 026A6h, 026AFh, 026B8h, 026C1h, 026CAh, 026D3h, 026DCh, 026E5h, 026EEh, 026F7h, 02700h, 02709h, 02712h, 0271Bh, 02724h, 0272Dh
-        .word 02736h, 0273Fh, 02748h, 02751h, 0275Ah, 02763h, 0276Dh, 02776h, 0277Fh, 02788h, 02791h, 0279Ah, 027A3h, 027ACh, 027B6h, 027BFh
-        .word 027C8h, 027D1h, 027DAh, 027E4h, 027EDh, 027F6h, 027FFh, 02809h, 02812h, 0281Bh, 02824h, 0282Eh, 02837h, 02840h, 0284Ah, 02853h
-        .word 0285Ch, 02865h, 0286Fh, 02878h, 02882h, 0288Bh, 02894h, 0289Eh, 028A7h, 028B0h, 028BAh, 028C3h, 028CDh, 028D6h, 028E0h, 028E9h
-        .word 028F2h, 028FCh, 02905h, 0290Fh, 02918h, 02922h, 0292Bh, 02935h, 0293Eh, 02948h, 02951h, 0295Bh, 02965h, 0296Eh, 02978h, 02981h
-        .word 0298Bh, 02995h, 0299Eh, 029A8h, 029B1h, 029BBh, 029C5h, 029CEh, 029D8h, 029E2h, 029EBh, 029F5h, 029FFh, 02A08h, 02A12h, 02A1Ch
-        .word 02A26h, 02A2Fh, 02A39h, 02A43h, 02A4Dh, 02A56h, 02A60h, 02A6Ah, 02A74h, 02A7Eh, 02A87h, 02A91h, 02A9Bh, 02AA5h, 02AAFh, 02AB9h
-        .word 02AC3h, 02ACCh, 02AD6h, 02AE0h, 02AEAh, 02AF4h, 02AFEh, 02B08h, 02B12h, 02B1Ch, 02B26h, 02B30h, 02B3Ah, 02B44h, 02B4Eh, 02B58h
-        .word 02B62h, 02B6Ch, 02B76h, 02B80h, 02B8Ah, 02B94h, 02B9Eh, 02BA8h, 02BB2h, 02BBCh, 02BC6h, 02BD1h, 02BDBh, 02BE5h, 02BEFh, 02BF9h
-        .word 02C03h, 02C0Dh, 02C18h, 02C22h, 02C2Ch, 02C36h, 02C40h, 02C4Bh, 02C55h, 02C5Fh, 02C69h, 02C74h, 02C7Eh, 02C88h, 02C93h, 02C9Dh
-        .word 02CA7h, 02CB2h, 02CBCh, 02CC6h, 02CD1h, 02CDBh, 02CE5h, 02CF0h, 02CFAh, 02D04h, 02D0Fh, 02D19h, 02D24h, 02D2Eh, 02D39h, 02D43h
-        .word 02D4Dh, 02D58h, 02D62h, 02D6Dh, 02D77h, 02D82h, 02D8Ch, 02D97h, 02DA1h, 02DACh, 02DB7h, 02DC1h, 02DCCh, 02DD6h, 02DE1h, 02DECh
-        .word 02DF6h, 02E01h, 02E0Bh, 02E16h, 02E21h, 02E2Bh, 02E36h, 02E41h, 02E4Bh, 02E56h, 02E61h, 02E6Ch, 02E76h, 02E81h, 02E8Ch, 02E97h
-        .word 02EA1h, 02EACh, 02EB7h, 02EC2h, 02ECCh, 02ED7h, 02EE2h, 02EEDh, 02EF8h, 02F03h, 02F0Eh, 02F18h, 02F23h, 02F2Eh, 02F39h, 02F44h
-        .word 02F4Fh, 02F5Ah, 02F65h, 02F70h, 02F7Bh, 02F86h, 02F91h, 02F9Ch, 02FA7h, 02FB2h, 02FBDh, 02FC8h, 02FD3h, 02FDEh, 02FE9h, 02FF4h
-        .word 02FFFh, 0300Ah, 03015h, 03020h, 0302Ch, 03037h, 03042h, 0304Dh, 03058h, 03063h, 0306Eh, 0307Ah, 03085h, 03090h, 0309Bh, 030A7h
-        .word 030B2h, 030BDh, 030C8h, 030D4h, 030DFh, 030EAh, 030F5h, 03101h, 0310Ch, 03117h, 03123h, 0312Eh, 0313Ah, 03145h, 03150h, 0315Ch
-        .word 03167h, 03173h, 0317Eh, 03189h, 03195h, 031A0h, 031ACh, 031B7h, 031C3h, 031CEh, 031DAh, 031E5h, 031F1h, 031FCh, 03208h, 03213h
-        .word 0321Fh, 0322Bh, 03236h, 03242h, 0324Dh, 03259h, 03265h, 03270h, 0327Ch, 03288h, 03293h, 0329Fh, 032ABh, 032B7h, 032C2h, 032CEh
-        .word 032DAh, 032E5h, 032F1h, 032FDh, 03309h, 03315h, 03320h, 0332Ch, 03338h, 03344h, 03350h, 0335Ch, 03367h, 03373h, 0337Fh, 0338Bh
-        .word 03397h, 033A3h, 033AFh, 033BBh, 033C7h, 033D3h, 033DFh, 033EBh, 033F7h, 03403h, 0340Fh, 0341Bh, 03427h, 03433h, 0343Fh, 0344Bh
-        .word 03457h, 03463h, 0346Fh, 0347Bh, 03488h, 03494h, 034A0h, 034ACh, 034B8h, 034C4h, 034D1h, 034DDh, 034E9h, 034F5h, 03502h, 0350Eh
-        .word 0351Ah, 03526h, 03533h, 0353Fh, 0354Bh, 03558h, 03564h, 03570h, 0357Dh, 03589h, 03595h, 035A2h, 035AEh, 035BAh, 035C7h, 035D3h
-        .word 035E0h, 035ECh, 035F9h, 03605h, 03612h, 0361Eh, 0362Bh, 03637h, 03644h, 03650h, 0365Dh, 03669h, 03676h, 03683h, 0368Fh, 0369Ch
-        .word 036A8h, 036B5h, 036C2h, 036CEh, 036DBh, 036E8h, 036F4h, 03701h, 0370Eh, 0371Bh, 03727h, 03734h, 03741h, 0374Eh, 0375Ah, 03767h
-        .word 03774h, 03781h, 0378Eh, 0379Ah, 037A7h, 037B4h, 037C1h, 037CEh, 037DBh, 037E8h, 037F5h, 03802h, 0380Eh, 0381Bh, 03828h, 03835h
-        .word 03842h, 0384Fh, 0385Ch, 03869h, 03876h, 03884h, 03891h, 0389Eh, 038ABh, 038B8h, 038C5h, 038D2h, 038DFh, 038ECh, 038FAh, 03907h
-        .word 03914h, 03921h, 0392Eh, 0393Bh, 03949h, 03956h, 03963h, 03970h, 0397Eh, 0398Bh, 03998h, 039A6h, 039B3h, 039C0h, 039CEh, 039DBh
-        .word 039E8h, 039F6h, 03A03h, 03A11h, 03A1Eh, 03A2Bh, 03A39h, 03A46h, 03A54h, 03A61h, 03A6Fh, 03A7Ch, 03A8Ah, 03A97h, 03AA5h, 03AB2h
-        .word 03AC0h, 03ACEh, 03ADBh, 03AE9h, 03AF6h, 03B04h, 03B12h, 03B1Fh, 03B2Dh, 03B3Bh, 03B48h, 03B56h, 03B64h, 03B72h, 03B7Fh, 03B8Dh
-        .word 03B9Bh, 03BA9h, 03BB6h, 03BC4h, 03BD2h, 03BE0h, 03BEEh, 03BFCh, 03C09h, 03C17h, 03C25h, 03C33h, 03C41h, 03C4Fh, 03C5Dh, 03C6Bh
-        .word 03C79h, 03C87h, 03C95h, 03CA3h, 03CB1h, 03CBFh, 03CCDh, 03CDBh, 03CE9h, 03CF7h, 03D05h, 03D13h, 03D21h, 03D2Fh, 03D3Eh, 03D4Ch
-        .word 03D5Ah, 03D68h, 03D76h, 03D85h, 03D93h, 03DA1h, 03DAFh, 03DBDh, 03DCCh, 03DDAh, 03DE8h, 03DF7h, 03E05h, 03E13h, 03E22h, 03E30h
-        .word 03E3Eh, 03E4Dh, 03E5Bh, 03E6Ah, 03E78h, 03E86h, 03E95h, 03EA3h, 03EB2h, 03EC0h, 03ECFh, 03EDDh, 03EECh, 03EFAh, 03F09h, 03F18h
-        .word 03F26h, 03F35h, 03F43h, 03F52h, 03F61h, 03F6Fh, 03F7Eh, 03F8Dh, 03F9Bh, 03FAAh, 03FB9h, 03FC7h, 03FD6h, 03FE5h, 03FF4h, 04002h
-        .word 04011h, 04020h, 0402Fh, 0403Eh, 0404Dh, 0405Bh, 0406Ah, 04079h, 04088h, 04097h, 040A6h, 040B5h, 040C4h, 040D3h, 040E2h, 040F1h
-        .word 04100h, 0410Fh, 0411Eh, 0412Dh, 0413Ch, 0414Bh, 0415Ah, 04169h, 04178h, 04188h, 04197h, 041A6h, 041B5h, 041C4h, 041D3h, 041E3h
-        .word 041F2h, 04201h, 04210h, 04220h, 0422Fh, 0423Eh, 0424Eh, 0425Dh, 0426Ch, 0427Ch, 0428Bh, 0429Ah, 042AAh, 042B9h, 042C9h, 042D8h
+        .DW $02174, $0217B, $02183, $0218B, $02193, $0219A, $021A2, $021AA, $021B2, $021BA, $021C1, $021C9, $021D1, $021D9, $021E1, $021E8
+        .DW $021F0, $021F8, $02200, $02208, $02210, $02218, $0221F, $02227, $0222F, $02237, $0223F, $02247, $0224F, $02257, $0225F, $02267
+        .DW $0226F, $02277, $0227F, $02287, $0228F, $02297, $0229F, $022A7, $022AF, $022B7, $022BF, $022C7, $022CF, $022D7, $022DF, $022E7
+        .DW $022EF, $022F7, $022FF, $02307, $0230F, $02317, $0231F, $02328, $02330, $02338, $02340, $02348, $02350, $02358, $02361, $02369
+        .DW $02371, $02379, $02381, $0238A, $02392, $0239A, $023A2, $023AA, $023B3, $023BB, $023C3, $023CB, $023D4, $023DC, $023E4, $023ED
+        .DW $023F5, $023FD, $02406, $0240E, $02416, $0241F, $02427, $0242F, $02438, $02440, $02448, $02451, $02459, $02462, $0246A, $02472
+        .DW $0247B, $02483, $0248C, $02494, $0249D, $024A5, $024AE, $024B6, $024BE, $024C7, $024CF, $024D8, $024E0, $024E9, $024F2, $024FA
+        .DW $02503, $0250B, $02514, $0251C, $02525, $0252D, $02536, $0253F, $02547, $02550, $02559, $02561, $0256A, $02572, $0257B, $02584
+        .DW $0258C, $02595, $0259E, $025A7, $025AF, $025B8, $025C1, $025C9, $025D2, $025DB, $025E4, $025EC, $025F5, $025FE, $02607, $0260F
+        .DW $02618, $02621, $0262A, $02633, $0263C, $02644, $0264D, $02656, $0265F, $02668, $02671, $0267A, $02682, $0268B, $02694, $0269D
+        .DW $026A6, $026AF, $026B8, $026C1, $026CA, $026D3, $026DC, $026E5, $026EE, $026F7, $02700, $02709, $02712, $0271B, $02724, $0272D
+        .DW $02736, $0273F, $02748, $02751, $0275A, $02763, $0276D, $02776, $0277F, $02788, $02791, $0279A, $027A3, $027AC, $027B6, $027BF
+        .DW $027C8, $027D1, $027DA, $027E4, $027ED, $027F6, $027FF, $02809, $02812, $0281B, $02824, $0282E, $02837, $02840, $0284A, $02853
+        .DW $0285C, $02865, $0286F, $02878, $02882, $0288B, $02894, $0289E, $028A7, $028B0, $028BA, $028C3, $028CD, $028D6, $028E0, $028E9
+        .DW $028F2, $028FC, $02905, $0290F, $02918, $02922, $0292B, $02935, $0293E, $02948, $02951, $0295B, $02965, $0296E, $02978, $02981
+        .DW $0298B, $02995, $0299E, $029A8, $029B1, $029BB, $029C5, $029CE, $029D8, $029E2, $029EB, $029F5, $029FF, $02A08, $02A12, $02A1C
+        .DW $02A26, $02A2F, $02A39, $02A43, $02A4D, $02A56, $02A60, $02A6A, $02A74, $02A7E, $02A87, $02A91, $02A9B, $02AA5, $02AAF, $02AB9
+        .DW $02AC3, $02ACC, $02AD6, $02AE0, $02AEA, $02AF4, $02AFE, $02B08, $02B12, $02B1C, $02B26, $02B30, $02B3A, $02B44, $02B4E, $02B58
+        .DW $02B62, $02B6C, $02B76, $02B80, $02B8A, $02B94, $02B9E, $02BA8, $02BB2, $02BBC, $02BC6, $02BD1, $02BDB, $02BE5, $02BEF, $02BF9
+        .DW $02C03, $02C0D, $02C18, $02C22, $02C2C, $02C36, $02C40, $02C4B, $02C55, $02C5F, $02C69, $02C74, $02C7E, $02C88, $02C93, $02C9D
+        .DW $02CA7, $02CB2, $02CBC, $02CC6, $02CD1, $02CDB, $02CE5, $02CF0, $02CFA, $02D04, $02D0F, $02D19, $02D24, $02D2E, $02D39, $02D43
+        .DW $02D4D, $02D58, $02D62, $02D6D, $02D77, $02D82, $02D8C, $02D97, $02DA1, $02DAC, $02DB7, $02DC1, $02DCC, $02DD6, $02DE1, $02DEC
+        .DW $02DF6, $02E01, $02E0B, $02E16, $02E21, $02E2B, $02E36, $02E41, $02E4B, $02E56, $02E61, $02E6C, $02E76, $02E81, $02E8C, $02E97
+        .DW $02EA1, $02EAC, $02EB7, $02EC2, $02ECC, $02ED7, $02EE2, $02EED, $02EF8, $02F03, $02F0E, $02F18, $02F23, $02F2E, $02F39, $02F44
+        .DW $02F4F, $02F5A, $02F65, $02F70, $02F7B, $02F86, $02F91, $02F9C, $02FA7, $02FB2, $02FBD, $02FC8, $02FD3, $02FDE, $02FE9, $02FF4
+        .DW $02FFF, $0300A, $03015, $03020, $0302C, $03037, $03042, $0304D, $03058, $03063, $0306E, $0307A, $03085, $03090, $0309B, $030A7
+        .DW $030B2, $030BD, $030C8, $030D4, $030DF, $030EA, $030F5, $03101, $0310C, $03117, $03123, $0312E, $0313A, $03145, $03150, $0315C
+        .DW $03167, $03173, $0317E, $03189, $03195, $031A0, $031AC, $031B7, $031C3, $031CE, $031DA, $031E5, $031F1, $031FC, $03208, $03213
+        .DW $0321F, $0322B, $03236, $03242, $0324D, $03259, $03265, $03270, $0327C, $03288, $03293, $0329F, $032AB, $032B7, $032C2, $032CE
+        .DW $032DA, $032E5, $032F1, $032FD, $03309, $03315, $03320, $0332C, $03338, $03344, $03350, $0335C, $03367, $03373, $0337F, $0338B
+        .DW $03397, $033A3, $033AF, $033BB, $033C7, $033D3, $033DF, $033EB, $033F7, $03403, $0340F, $0341B, $03427, $03433, $0343F, $0344B
+        .DW $03457, $03463, $0346F, $0347B, $03488, $03494, $034A0, $034AC, $034B8, $034C4, $034D1, $034DD, $034E9, $034F5, $03502, $0350E
+        .DW $0351A, $03526, $03533, $0353F, $0354B, $03558, $03564, $03570, $0357D, $03589, $03595, $035A2, $035AE, $035BA, $035C7, $035D3
+        .DW $035E0, $035EC, $035F9, $03605, $03612, $0361E, $0362B, $03637, $03644, $03650, $0365D, $03669, $03676, $03683, $0368F, $0369C
+        .DW $036A8, $036B5, $036C2, $036CE, $036DB, $036E8, $036F4, $03701, $0370E, $0371B, $03727, $03734, $03741, $0374E, $0375A, $03767
+        .DW $03774, $03781, $0378E, $0379A, $037A7, $037B4, $037C1, $037CE, $037DB, $037E8, $037F5, $03802, $0380E, $0381B, $03828, $03835
+        .DW $03842, $0384F, $0385C, $03869, $03876, $03884, $03891, $0389E, $038AB, $038B8, $038C5, $038D2, $038DF, $038EC, $038FA, $03907
+        .DW $03914, $03921, $0392E, $0393B, $03949, $03956, $03963, $03970, $0397E, $0398B, $03998, $039A6, $039B3, $039C0, $039CE, $039DB
+        .DW $039E8, $039F6, $03A03, $03A11, $03A1E, $03A2B, $03A39, $03A46, $03A54, $03A61, $03A6F, $03A7C, $03A8A, $03A97, $03AA5, $03AB2
+        .DW $03AC0, $03ACE, $03ADB, $03AE9, $03AF6, $03B04, $03B12, $03B1F, $03B2D, $03B3B, $03B48, $03B56, $03B64, $03B72, $03B7F, $03B8D
+        .DW $03B9B, $03BA9, $03BB6, $03BC4, $03BD2, $03BE0, $03BEE, $03BFC, $03C09, $03C17, $03C25, $03C33, $03C41, $03C4F, $03C5D, $03C6B
+        .DW $03C79, $03C87, $03C95, $03CA3, $03CB1, $03CBF, $03CCD, $03CDB, $03CE9, $03CF7, $03D05, $03D13, $03D21, $03D2F, $03D3E, $03D4C
+        .DW $03D5A, $03D68, $03D76, $03D85, $03D93, $03DA1, $03DAF, $03DBD, $03DCC, $03DDA, $03DE8, $03DF7, $03E05, $03E13, $03E22, $03E30
+        .DW $03E3E, $03E4D, $03E5B, $03E6A, $03E78, $03E86, $03E95, $03EA3, $03EB2, $03EC0, $03ECF, $03EDD, $03EEC, $03EFA, $03F09, $03F18
+        .DW $03F26, $03F35, $03F43, $03F52, $03F61, $03F6F, $03F7E, $03F8D, $03F9B, $03FAA, $03FB9, $03FC7, $03FD6, $03FE5, $03FF4, $04002
+        .DW $04011, $04020, $0402F, $0403E, $0404D, $0405B, $0406A, $04079, $04088, $04097, $040A6, $040B5, $040C4, $040D3, $040E2, $040F1
+        .DW $04100, $0410F, $0411E, $0412D, $0413C, $0414B, $0415A, $04169, $04178, $04188, $04197, $041A6, $041B5, $041C4, $041D3, $041E3
+        .DW $041F2, $04201, $04210, $04220, $0422F, $0423E, $0424E, $0425D, $0426C, $0427C, $0428B, $0429A, $042AA, $042B9, $042C9, $042D8
 
 IT_FineSineData:
-	.byte   0,  2,  3,  5,  6,  8,  9, 11, 12, 14, 16, 17, 19, 20, 22, 23
-	.byte  24, 26, 27, 29, 30, 32, 33, 34, 36, 37, 38, 39, 41, 42, 43, 44
-	.byte  45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 56, 57, 58, 59
-	.byte  59, 60, 60, 61, 61, 62, 62, 62, 63, 63, 63, 64, 64, 64, 64, 64
-	.byte  64, 64, 64, 64, 64, 64, 63, 63, 63, 62, 62, 62, 61, 61, 60, 60
-	.byte  59, 59, 58, 57, 56, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46
-	.byte  45, 44, 43, 42, 41, 39, 38, 37, 36, 34, 33, 32, 30, 29, 27, 26
-	.byte  24, 23, 22, 20, 19, 17, 16, 14, 12, 11,  9,  8,  6,  5,  3,  2
-	.byte   0, -2, -3, -5, -6, -8, -9,-11,-12,-14,-16,-17,-19,-20,-22,-23
-	.byte -24,-26,-27,-29,-30,-32,-33,-34,-36,-37,-38,-39,-41,-42,-43,-44
-	.byte -45,-46,-47,-48,-49,-50,-51,-52,-53,-54,-55,-56,-56,-57,-58,-59
-	.byte -59,-60,-60,-61,-61,-62,-62,-62,-63,-63,-63,-64,-64,-64,-64,-64
-	.byte -64,-64,-64,-64,-64,-64,-63,-63,-63,-62,-62,-62,-61,-61,-60,-60
-	.byte -59,-59,-58,-57,-56,-56,-55,-54,-53,-52,-51,-50,-49,-48,-47,-46
-	.byte -45,-44,-43,-42,-41,-39,-38,-37,-36,-34,-33,-32,-30,-29,-27,-26
-	.byte -24,-23,-22,-20,-19,-17,-16,-14,-12,-11, -9, -8, -6, -5, -3, -2
+	.DB 0,  2,  3,  5,  6,  8,  9, 11, 12, 14, 16, 17, 19, 20, 22, 23
+	.DB 24, 26, 27, 29, 30, 32, 33, 34, 36, 37, 38, 39, 41, 42, 43, 44
+	.DB 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 56, 57, 58, 59
+	.DB 59, 60, 60, 61, 61, 62, 62, 62, 63, 63, 63, 64, 64, 64, 64, 64
+	.DB 64, 64, 64, 64, 64, 64, 63, 63, 63, 62, 62, 62, 61, 61, 60, 60
+	.DB 59, 59, 58, 57, 56, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46
+	.DB 45, 44, 43, 42, 41, 39, 38, 37, 36, 34, 33, 32, 30, 29, 27, 26
+	.DB 24, 23, 22, 20, 19, 17, 16, 14, 12, 11,  9,  8,  6,  5,  3,  2
+	.DB 0, -2, -3, -5, -6, -8, -9,-11,-12,-14,-16,-17,-19,-20,-22,-23
+	.DB -24,-26,-27,-29,-30,-32,-33,-34,-36,-37,-38,-39,-41,-42,-43,-44
+	.DB -45,-46,-47,-48,-49,-50,-51,-52,-53,-54,-55,-56,-56,-57,-58,-59
+	.DB -59,-60,-60,-61,-61,-62,-62,-62,-63,-63,-63,-64,-64,-64,-64,-64
+	.DB -64,-64,-64,-64,-64,-64,-63,-63,-63,-62,-62,-62,-61,-61,-60,-60
+	.DB -59,-59,-58,-57,-56,-56,-55,-54,-53,-52,-51,-50,-49,-48,-47,-46
+	.DB -45,-44,-43,-42,-41,-39,-38,-37,-36,-34,-33,-32,-30,-29,-27,-26
+	.DB -24,-23,-22,-20,-19,-17,-16,-14,-12,-11, -9, -8, -6, -5, -3, -2
 	
 ;****************************************************************************************
 ;* Sound Effects
 ;****************************************************************************************
 
 map_15_127:
-	 .byte 0,  8, 17, 25,
-	 .byte 34, 42, 51, 59,
-	 .byte 68, 76, 85, 93,
-	 .byte 102, 110, 119, 127
+	 .DB 0,  8, 17, 25,
+	 .DB 34, 42, 51, 59,
+	 .DB 68, 76, 85, 93,
+	 .DB 102, 110, 119, 127
 
 ;*************************************************************************
 ;* play sound effect
@@ -2920,25 +2943,25 @@ SFX_Play:
 ;-------------------------------------------------------------------------
 	mov	a, m0			; m1 = GAIN (0-15 = 0-127)
 	xcn	a			;
-	and	a, #0Fh			;
+	and	a, #$0F			;
 	mov	y, a			;
 	mov	a, !map_15_127+y	;
 	mov	m1, a			;---------------------------------
 	mov	a, m0			; m2 = volumes
-	and	a, #0Fh			;
+	and	a, #$0F			;
 	mov	y, a			;
 	mov	a, !map_15_127+y	;
 	mov	m2+1, a			;
 	eor	a, #127			;
 	mov	m2, a			;---------------------------------
 	mov	a, m0+1			; m1.h = src
-	and	a, #0F0h		;
+	and	a, #$0F0		;
 	xcn	a			;
 	clrc				;
 	adc	a, #64			;
 	mov	m1+1, a			;---------------------------------
 	mov	a, m0+1			; m3 = pitch.h
-	and	a, #0Fh			; (pitch.l = 0)
+	and	a, #$0F			; (pitch.l = 0)
 	asl	a			;
 	mov	m3, a			;---------------------------------
 	mov	a, sfx_mask		; test for unused channels
@@ -2951,12 +2974,12 @@ SFX_Play:
 _sfx_use0:
 ;-------------------------------------------------------------------------
 	mov	sfx_next, #0		;
-	mov	SPC_DSPA, #064h		; set SRCN value for channel
+	mov	SPC_DSPA, #$064		; set SRCN value for channel
 	mov	SPC_DSPD, m1+1		;---------------------------------
 	mov	SPC_DSPA, #DSP_KON	; set KON bit
 	mov	SPC_DSPD, #%01000000	;
 	or	sfx_mask, #%01000000	; set SFX flag
-	mov	SPC_DSPA, #060h		; setup dsp pointer
+	mov	SPC_DSPA, #$060		; setup dsp pointer
 	bra	_sfx_start		;
 ;-------------------------------------------------------------------------
 _sfx_use1:
@@ -2964,12 +2987,12 @@ _sfx_use1:
 ;	cmp	stream_active, #0	; [STREAMING reserves channel7]
 ;	bne	_sfx_use0		;
 	mov	sfx_next, #1
-	mov	SPC_DSPA, #074h
+	mov	SPC_DSPA, #$074
 	mov	SPC_DSPD, m1+1
 	mov	SPC_DSPA, #DSP_KON
 	mov	SPC_DSPD, #%10000000
 	or	sfx_mask, #%10000000
-	mov	SPC_DSPA, #070h
+	mov	SPC_DSPA, #$070
 ;-------------------------------------------------------------------------
 _sfx_start:
 ;-------------------------------------------------------------------------
@@ -3018,12 +3041,12 @@ SFX_Update:
 Streaming_Init:
 ;--------------------------------------------------------------------------------------
 	mov	a, #0				; reset region size
-	call	Streaming_Resize		;
+	call !Streaming_Resize		;
 ;--------------------------------------------------------------------------------------
-	mov	a, #__BRK_ROUTINE__ & 0FFh	; set BRK/TCALL0 vector
-	mov	!0FFDEH, a			;
+	mov	a, #__BRK_ROUTINE__ & $0FF	; set BRK/TCALL0 vector
+	mov	!$0FFDE, a			;
 	mov	a, #__BRK_ROUTINE__ >> 8	;
-	mov	!0FFDFH, a			;
+	mov	!$0FFDF, a			;
 ;--------------------------------------------------------------------------------------
 	ret
 	
@@ -3036,7 +3059,7 @@ Streaming_Resize:
 ;	call	Streaming_CancelActive
 ;--------------------------------------------------------------------------------------
 	mov	stream_size, a			;
-	mov	a, #0FFh			; calc streaming region address H
+	mov	a, #$0FF			; calc streaming region address H
 	setc					;
 	sbc	a, stream_size			;
 	mov	stream_region, a		;
@@ -3076,7 +3099,7 @@ Streaming_Activate:
 	mov	stream_volL, a			;
 ;--------------------------------------------------------------------------------------
 	mov	a, SPC_PORT2			; compute GAIN (v<<3)
-	and	a, #0F0h			;
+	and	a, #$0F0			;
 	lsr	a				;
 	mov	stream_gain, a			;
 ;--------------------------------------------------------------------------------------
@@ -3084,7 +3107,7 @@ Streaming_Activate:
 ;--------------------------------------------------------------------------------------
 	mov	stream_initial, #1		; set initial flag for data routine
 ;--------------------------------------------------------------------------------------
-	call	StreamResetAddress		;
+	call !StreamResetAddress		;
 ;--------------------------------------------------------------------------------------
 	ret
 	
@@ -3092,22 +3115,22 @@ Streaming_Activate:
 StreamStartChannel:
 ;======================================================================================
 	mov	stream_initial, #0	; reset flag
-	or	sfx_mask, #80h		; patch sfx system
+	or	sfx_mask, #$80		; patch sfx system
 	mov	sfx_next, #1		; 
 ;--------------------------------------------------------------------------------------
-	mov	SPC_DSPA, #074h		; SRCN = stream
+	mov	SPC_DSPA, #$074		; SRCN = stream
 	mov	SPC_DSPD, #80		;
 ;--------------------------------------------------------------------------------------
 	mov	SPC_DSPA, #DSP_KON	; KEYON channel
-	mov	SPC_DSPD, #80h		;
+	mov	SPC_DSPD, #$80		;
 ;--------------------------------------------------------------------------------------
-	mov	SPC_DSPA, #070h		; copy volume (panning)
+	mov	SPC_DSPA, #$070		; copy volume (panning)
 	mov	SPC_DSPD, stream_volL	; 
 	inc	SPC_DSPA		;
 	mov	SPC_DSPD, stream_volR	;
 	inc	SPC_DSPA		;
 ;--------------------------------------------------------------------------------------
-	mov	SPC_DSPD, #00H		; copy pitch
+	mov	SPC_DSPD, #$00		; copy pitch
 	inc	SPC_DSPA		;
 	mov	SPC_DSPD, stream_rate	;
 	inc	SPC_DSPA		;
@@ -3127,20 +3150,20 @@ StreamStartChannel:
 ;**************************************************************************************
 Streaming_Run:
 ;--------------------------------------------------------------------------------------
-	mov	SPC_PORT0, #80h		; respond to SNES
+	mov	SPC_PORT0, #$80		; respond to SNES
 ;--------------------------------------------------------------------------------------
 	push	a			; preserve regs
 	push	x			;
 	push	y			;
 ;--------------------------------------------------------------------------------------
-_srw1:	cmp	SPC_PORT0, #80h		; wait for snes
+_srw1:	cmp	SPC_PORT0, #$80		; wait for snes
 	bcs	_srw1			;
 ;--------------------------------------------------------------------------------------
 	mov	a, SPC_PORT0		; copy nchunks
 	mov	stream_a, a		;
 	mov	a, SPC_PORT1		; check for new note
 	beq	_sr_nstart		;	
-	call	Streaming_Activate	;
+	call !Streaming_Activate	;
 _sr_nstart:				;
 	mov	x, SPC_PORT0		;
 	mov	SPC_PORT0, x		; respond to snes
@@ -3164,36 +3187,36 @@ _sr_wait3:
 _sr_copy:				; copy 9 bytes (16 SAMPLES)
 ;--------------------------------------------------------------------------------------
 	mov	a, SPC_PORT2		; copy first 3 bytes
-STRC0:	mov	!0FE00h+0+y, a	;
+STRC0:	mov	!$0FE00+0+y, a	;
 	mov	a, SPC_PORT3		;
-STRC1:	mov	!0FE00h+1+y, a	;
+STRC1:	mov	!$0FE00+1+y, a	;
 	mov	SPC_PORT0, x		;-signal
 	mov	a, SPC_PORT1		;
-STRC2:	mov	!0FE00h+2+y, a	;
+STRC2:	mov	!$0FE00+2+y, a	;
 	inc	x			;
 _wait1:					; wait for data
 	cmp	x, SPC_PORT0		;
 	bne	_wait1			;
 ;--------------------------------------------------------------------------------------
 	mov	a, SPC_PORT2		; copy next 3 bytes
-STRC3:	mov	!0FE00h+3+y, a	;
+STRC3:	mov	!$0FE00+3+y, a	;
 	mov	a, SPC_PORT3		;
-STRC4:	mov	!0FE00h+4+y, a	;
+STRC4:	mov	!$0FE00+4+y, a	;
 	mov	SPC_PORT0, x		;-signal
 	mov	a, SPC_PORT1		;
-STRC5:	mov	!0FE00h+5+y, a	;
+STRC5:	mov	!$0FE00+5+y, a	;
 	inc	x			;
 _wait2:					; wait for data
 	cmp	x, SPC_PORT0		;
 	bne	_wait2			;
 ;--------------------------------------------------------------------------------------
 	mov	a, SPC_PORT2		; copy last 3 bytes
-STRC6:	mov	!0FE00h+6+y, a	;
+STRC6:	mov	!$0FE00+6+y, a	;
 	mov	a, SPC_PORT3		;
-STRC7:	mov	!0FE00h+7+y, a	;
+STRC7:	mov	!$0FE00+7+y, a	;
 	mov	SPC_PORT0, x		;-signal
 	mov	a, SPC_PORT1		;
-STRC8:	mov	!0FE00h+8+y, a	; wait for data
+STRC8:	mov	!$0FE00+8+y, a	; wait for data
 ;--------------------------------------------------------------------------------------
 	mov	a, y			; wr += 9
 	clrc
@@ -3208,10 +3231,10 @@ _sr_exit:				; update write address
 	mov	y, #0			;
 	addw	ya, stream_write	;
 	movw	stream_write, ya	;
-	call	StreamSetupAddress	;
+	call !StreamSetupAddress	;
 	cmp	stream_initial, #0
 	beq	_sr_nstart2
-	call	StreamStartChannel
+	call !StreamStartChannel
 _sr_nstart2:
 ;--------------------------------------------------------------------------------------
 	pop	y			;4
@@ -3224,7 +3247,7 @@ __BRK_ROUTINE__:
 	bcs	_brk_pass
 	ret
 _brk_pass:
-	jmp	Streaming_Run
+	jmp !Streaming_Run
 	
 ; (faster version without overflow checks)
 ;======================================================================================
@@ -3308,33 +3331,34 @@ _ssa8:	mov	!STRC8+1, a			; 9th
 	
 _ssa_over_1:
 	inc	y
-	jmp	_ssa1
+	jmp !_ssa1
 _ssa_over_2:
 	inc	y
-	jmp	_ssa2
+	jmp !_ssa2
 _ssa_over_3:
 	inc	y
-	jmp	_ssa3
+	jmp !_ssa3
 _ssa_over_4:
 	inc	y
-	jmp	_ssa4
+	jmp !_ssa4
 _ssa_over_5:
 	inc	y
-	jmp	_ssa5
+	jmp !_ssa5
 _ssa_over_6:
 	inc	y
-	jmp	_ssa6
+	jmp !_ssa6
 _ssa_over_7:
 	inc	y
-	jmp	_ssa7
+	jmp !_ssa7
 _ssa_over_8:
 	inc	y
-	jmp	_ssa8
+	jmp !_ssa8
 
 ;--------------------------------------------------------
-MODULE = 1A00h
 ;--------------------------------------------------------
 	
 ;--------------------------------------------------------
 .END
 ;--------------------------------------------------------
+
+.ENDS
