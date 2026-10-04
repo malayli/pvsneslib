@@ -49,7 +49,7 @@ endif
 ifeq ($(OS),Windows_NT)
 DRIDIROBJW   := $(wordlist 1,1,$(subst /, ,${LIBDIRSOBJS}))
 REPDIROBJSW  := $(subst /,\\,${LIBDIRSOBJS})
-REPDIROBJSW1 := $$(echo "$(REPDIROBJSW)" | sed 's/^.\{3\}//')
+REPDIROBJSW1 := $$(echo "$(REPDIROBJSW)" | gsed 's/^.\{3\}//')
 LIBDIRSOBJSW := ${DRIDIROBJW}:\\${REPDIROBJSW1}
 else
 LIBDIRSOBJSW := ${LIBDIRSOBJS}
@@ -136,7 +136,7 @@ endif
 #---------------------------------------------------------------------------------
 %.asm: %.ps
 	@echo Assembling ... $(notdir $<)
-	$(OPT) $< >$*.asp
+	$(OPT) -i $< -o $*.asp
 ifeq ($(DEBUG),1)
 	cp $*.asp $*.opt.02.dbg
 endif
