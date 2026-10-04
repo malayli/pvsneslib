@@ -36,8 +36,12 @@
 
 int verbosity();
 void PrintVersion(void);
-dynArray tidyFile(const int argc, char **argv);
+dynArray tidyFile(char *filename);
 dynArray storeBss(dynArray file);
 dynArray optimizeAsm(dynArray file, dynArray bss, size_t verbose);
+
+/* set for the peephole pass that runs after the flow analysis: that pass may
+   leave A reused after a store, which some old rules assume never happens */
+extern int peepAfterFlow;
 
 #endif

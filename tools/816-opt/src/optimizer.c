@@ -1,42 +1,56 @@
-/*
- * opt-65816 - Assembly code optimizer for the WDC 65816 processor.
- *
- * Description: Assembly code optimizer produced
- * by the 816 Tiny C Compiler (816-tcc).
- * This library is a C port of the 816-opt python tool.
- *
- * Author: kobenairb (kobenairb@gmail.com).
- *
- * Copyright (c) 2022.
- *
- * This project is released under the GNU Public License.
- *
- */
+/*---------------------------------------------------------------------------------
+
+	Copyright (C) 2022-2026
+		Alekmaul & kobenairb (kobenairb@gmail.com)
+
+	This software is provided 'as-is', without any express or implied
+	warranty.  In no event will the authors be held liable for any
+	damages arising from the use of this software.
+
+	Permission is granted to anyone to use this software for any
+	purpose, including commercial applications, and to alter it and
+	redistribute it freely, subject to the following restrictions:
+
+	1.	The origin of this software must not be misrepresented; you
+		must not claim that you wrote the original software. If you use
+		this software in a product, an acknowledgment in the product
+		documentation would be appreciated but is not required.
+	2.	Altered source versions must be plainly marked as such, and
+		must not be misrepresented as being the original software.
+	3.	This notice may not be removed or altered from any source
+		distribution.
+
+ 	Assembly code optimizer produced for the 816 Tiny C Compiler (816-tcc).
+ 	This library is a C port of the 816-opt python tool.
+	
+***************************************************************************/
 
 #include "optimizer.h"
 
 /**
- * @brief Checks if OPT816_QUIET is set.
- * This environment variable sets the output in a quiet mode.
- * Just set it if you don't want extra messages (export OPT816_QUIET=1).
- * @return 0 = verbose (by default), 1 = quiet.
+ * @brief keep a small dynamic list of <name>_locals defines we've seen
  */
-int verbosity()
-{
-    char *QUIET_MODE = getenv("OPT816_QUIET");
+char **locals_names = NULL;
+size_t locals_names_used = 0, locals_names_size = 0;
 
-    if (!QUIET_MODE)
-        return 1;
-    return 0;
+int peepAfterFlow = 0;
+
+static void pushLocalName(char *name)
+{
+    if (locals_names_used == locals_names_size) {
+        locals_names_size = locals_names_size ? locals_names_size * 2 : 8;
+        locals_names = realloc(locals_names, locals_names_size * sizeof(char *));
+    }
+    locals_names[locals_names_used++] = strdup(name);
 }
 
-/**
- * @brief Print the version.
- */
-void PrintVersion(void)
+static int hasLocalName(const char *name)
 {
-    printf("816-opt v%s\n", BINVERSION);
-    printf("built: %s\n", BINDATE);
+    for (size_t ii = 0; ii < locals_names_used; ++ii) {
+        if (strcmp(locals_names[ii], name) == 0)
+            return 1;
+    }
+    return 0;
 }
 
 /**
@@ -87,14 +101,345 @@ int isControl(const char *a)
 }
 
 /**
+ * @brief Compare + branch fusion.
+    tcc turns every comparison into a boolean in X, then tests it:
+        ldx #1
+        [lda <left>]
+        sec
+        sbc <right>
+        tay
+        <block setting X to 0 or 1 from the flags>
+        stx.b tcc__rN
+        txa
+        bne + (jump to L if false) / beq + (jump to L if true)
+        brl L
+        +
+    This is replaced by a branch on the flags of the subtraction (cmp when the
+    V flag is not needed). A, X, Y and tcc__rN are dead after the test; a tya
+    right after means a long long comparison, which still needs Y.
+ */
+enum { CMP_EQ, CMP_NE, CMP_GT, CMP_LE, CMP_LT, CMP_GE, CMP_UGT, CMP_ULE, CMP_ULT, CMP_UGE, CMP_NB };
+
+static const char *cmpBlocks[CMP_NB][9] = {
+    [CMP_EQ] = {"beq +", "dex", "+", NULL},
+    [CMP_NE] = {"bne +", "dex", "+", NULL},
+    [CMP_GT] = {"beq ++", "bvc +", "eor #$8000", "+", "bpl +++", "++", "dex", "+++", NULL},
+    [CMP_LE] = {"beq +++", "bvc +", "eor #$8000", "+", "bmi +++", "++", "dex", "+++", NULL},
+    [CMP_LT] = {"bvc +", "eor #$8000", "+", "bmi +++", "++", "dex", "+++", NULL},
+    [CMP_GE] = {"bvc +", "eor #$8000", "+", "bpl +++", "++", "dex", "+++", NULL},
+    [CMP_UGT] = {"beq +", "bcs ++", "+ dex", "++", NULL},
+    [CMP_ULE] = {"beq ++", "bcc ++", "+ dex", "++", NULL},
+    [CMP_ULT] = {"bcc ++", "+ dex", "++", NULL},
+    [CMP_UGE] = {"bcs ++", "+ dex", "++", NULL},
+};
+
+static const int cmpInverse[CMP_NB] = {
+    [CMP_EQ] = CMP_NE, [CMP_NE] = CMP_EQ, [CMP_GT] = CMP_LE, [CMP_LE] = CMP_GT,
+    [CMP_LT] = CMP_GE, [CMP_GE] = CMP_LT, [CMP_UGT] = CMP_ULE, [CMP_ULE] = CMP_UGT,
+    [CMP_ULT] = CMP_UGE, [CMP_UGE] = CMP_ULT,
+};
+
+/* Branches jumping to L when the condition is false (L is reached by "brl L") */
+static const char *cmpJumps[CMP_NB][9] = {
+    [CMP_EQ] = {"beq +", "@", "+", NULL},
+    [CMP_NE] = {"bne +", "@", "+", NULL},
+    [CMP_GT] = {"beq ++", "bvc +", "eor #$8000", "+", "bpl +++", "++", "@", "+++", NULL},
+    [CMP_LE] = {"beq +++", "bvc +", "eor #$8000", "+", "bmi +++", "@", "+++", NULL},
+    [CMP_LT] = {"bvc +", "eor #$8000", "+", "bmi +", "@", "+", NULL},
+    [CMP_GE] = {"bvc +", "eor #$8000", "+", "bpl +", "@", "+", NULL},
+    [CMP_UGT] = {"beq ++", "bcs +", "++", "@", "+", NULL},
+    [CMP_ULE] = {"beq +", "bcc +", "@", "+", NULL},
+    [CMP_ULT] = {"bcc +", "@", "+", NULL},
+    [CMP_UGE] = {"bcs +", "@", "+", NULL},
+};
+
+static const char *jumpTarget(const char *l);
+
+static size_t fuseCompare(const dynArray file, size_t i, dynArray *out)
+{
+    size_t k = i + 1, lda = 0, sbc, n;
+    int cond = -1;
+
+    if (!matchStr(file.arr[i], "ldx #1"))
+        return 0;
+    if (k < file.used && startWith(file.arr[k], "lda"))
+        lda = k++;
+    if (k + 2 >= file.used || !matchStr(file.arr[k], "sec") || !startWith(file.arr[k + 1], "sbc")
+        || !matchStr(file.arr[k + 2], "tay"))
+        return 0;
+    sbc = k + 1;
+    k += 3;
+
+    for (int c = 0; c < CMP_NB && cond < 0; c++) {
+        for (n = 0; cmpBlocks[c][n]; n++) {
+            if (k + n >= file.used || !matchStr(file.arr[k + n], cmpBlocks[c][n]))
+                break;
+        }
+        if (!cmpBlocks[c][n])
+            cond = c;
+    }
+    if (cond < 0)
+        return 0;
+    for (n = 0; cmpBlocks[cond][n]; n++)
+        ;
+    k += n;
+
+    if (k + 2 >= file.used || !startWith(file.arr[k], "stx.b tcc__r") || !matchStr(file.arr[k + 1], "txa"))
+        return 0;
+    if (matchStr(file.arr[k + 2], "beq +"))
+        cond = cmpInverse[cond]; // jumps to L when true
+    else if (!matchStr(file.arr[k + 2], "bne +"))
+        return 0;
+    /* labels before the brl: other jumps (&&, ||, long long) land on the brl */
+    size_t labels = k + 3, brl = labels;
+    while (brl < file.used && endWith(file.arr[brl], ":"))
+        brl++;
+    if (brl + 2 >= file.used || !jumpTarget(file.arr[brl]) || !matchStr(file.arr[brl + 1], "+")
+        || matchStr(file.arr[brl + 2], "tya"))
+        return 0;
+
+    if (lda)
+        *out = pushToArray(*out, file.arr[lda]);
+    if (cond == CMP_GT || cond == CMP_LE || cond == CMP_LT || cond == CMP_GE) {
+        *out = pushToArray(*out, "sec");
+        *out = pushToArray(*out, file.arr[sbc]);
+    } else {
+        char *cmp = replaceStr(file.arr[sbc], "sbc", "cmp");
+        *out = pushToArray(*out, cmp);
+    }
+    for (n = 0; cmpJumps[cond][n]; n++) {
+        if (matchStr(cmpJumps[cond][n], "@")) {
+            for (size_t l = labels; l < brl; l++)
+                *out = pushToArray(*out, file.arr[l]);
+            *out = pushToArray(*out, file.arr[brl]);
+        } else
+            *out = pushToArray(*out, (char *) cmpJumps[cond][n]);
+    }
+
+    return brl + 2 - i;
+}
+
+/**
+ * @brief Tell if the label is defined close enough for an 8-bit branch placed at
+    line i. Lines are at most 4 bytes; directives (unknown size) stop the search.
+ */
+#define NEAR_LINES 28
+
+static int isNearLabel(const dynArray file, size_t i, const char *label)
+{
+    char def[MAXLEN_LINE];
+
+    snprintf(def, sizeof(def), "%s:", label);
+    for (size_t j = i + 1; j < file.used && j <= i + NEAR_LINES; j++) {
+        if (matchStr(file.arr[j], def))
+            return 1;
+        if (file.arr[j][0] == '.')
+            break;
+    }
+    for (size_t j = i; j-- > 0 && j + NEAR_LINES >= i;) {
+        if (matchStr(file.arr[j], def))
+            return 1;
+        if (file.arr[j][0] == '.')
+            break;
+    }
+    return 0;
+}
+
+/**
+ * @brief Tell if an anonymous "+" label defined at line i is only used by the
+    branch at line i - 2 (no other branch before it targets the same label).
+ */
+static int plusOnlyUsedBy(const dynArray file, size_t branch)
+{
+    for (size_t j = branch; j-- > 0;) {
+        const char *l = file.arr[j];
+        if (matchStr(l, "+") || startWith(l, "+ "))
+            return 1; // earlier branches target this earlier "+"
+        if (endWith(l, " +"))
+            return 0;
+    }
+    return 1;
+}
+
+static const char *invBranch(const char *b)
+{
+    static const char *pairs[][2] = {{"bcc", "bcs"}, {"bcs", "bcc"}, {"beq", "bne"}, {"bne", "beq"},
+                                     {"bmi", "bpl"}, {"bpl", "bmi"}, {"bvc", "bvs"}, {"bvs", "bvc"}};
+    for (size_t k = 0; k < sizeof(pairs) / sizeof(pairs[0]); k++)
+        if (startWith(b, pairs[k][0]) && b[3] == ' ')
+            return pairs[k][1];
+    return NULL;
+}
+
+/**
+ * @brief Branch over a long branch:
+        bXX +                      bXX M          (M close)
+        brl L            =>        brl L
+        +
+        bra M / jmp.w M
+    or, without the jump after it and L close: b(!XX) L
+ */
+static size_t branchOverBrl(const dynArray file, size_t i, dynArray *out)
+{
+    char buf[MAXLEN_LINE];
+    const char *inv;
+
+    if (i + 2 >= file.used || !endWith(file.arr[i], " +") || !(inv = invBranch(file.arr[i]))
+        || !jumpTarget(file.arr[i + 1]) || !matchStr(file.arr[i + 2], "+")
+        || !plusOnlyUsedBy(file, i))
+        return 0;
+    /* test of a boolean made by a comparison: leave it to fuseCompare */
+    if (i > 0
+        && (matchStr(file.arr[i - 1], "txa")
+            || (i > 1 && startWith(file.arr[i - 2], "stx.b tcc__r")
+                && startWith(file.arr[i - 1], "lda.b tcc__r"))))
+        return 0;
+
+    const char *far = jumpTarget(file.arr[i + 1]);
+    if (i + 3 < file.used && (startWith(file.arr[i + 3], "bra ") || startWith(file.arr[i + 3], "jmp.w "))) {
+        const char *next = file.arr[i + 3] + (file.arr[i + 3][0] == 'b' ? 4 : 6);
+        if (next[0] != '+' && next[0] != '-' && isNearLabel(file, i, next)) {
+            snprintf(buf, sizeof(buf), "%.3s %s", file.arr[i], next);
+            *out = pushToArray(*out, buf);
+            *out = pushToArray(*out, file.arr[i + 1]);
+            return 4;
+        }
+    }
+    if (isNearLabel(file, i, far)) {
+        snprintf(buf, sizeof(buf), "%s %s", inv, far);
+        *out = pushToArray(*out, buf);
+        return 3;
+    }
+    return 0;
+}
+
+/**
+ * @brief Jump threading: an unconditional jump to a label whose first
+    instruction is another unconditional jump goes directly to the final target
+    (jmp.w: as fast as a taken bra, same bank since it is the same section).
+ */
+static const char *jumpTarget(const char *l)
+{
+    if (startWith(l, "bra ") || startWith(l, "brl "))
+        return l + 4;
+    if (startWith(l, "jmp.w "))
+        return l + 6;
+    return NULL;
+}
+
+static size_t threadJump(const dynArray file, size_t i, dynArray *out)
+{
+    char def[MAXLEN_LINE], buf[MAXLEN_LINE];
+    const char *target = jumpTarget(file.arr[i]), *final = NULL, *seen[8];
+    int nseen = 0;
+
+    if (!target || target[0] == '+' || target[0] == '-')
+        return 0;
+    seen[nseen++] = target;
+    while (nseen < 8) {
+        size_t j;
+        snprintf(def, sizeof(def), "%s:", target);
+        for (j = 0; j < file.used && !matchStr(file.arr[j], def); j++)
+            ;
+        while (++j < file.used && endWith(file.arr[j], ":"))
+            ;
+        const char *next = j < file.used ? jumpTarget(file.arr[j]) : NULL;
+        if (!next || next[0] == '+' || next[0] == '-')
+            break;
+        for (int k = 0; k < nseen; k++)
+            if (matchStr(next, seen[k]))
+                return 0; // cycle: leave it alone
+        final = target = seen[nseen++] = next;
+    }
+    if (!final)
+        return 0;
+    snprintf(buf, sizeof(buf), "jmp.w %s", final);
+    *out = pushToArray(*out, buf);
+    return 1;
+}
+
+/**
+ * @brief Byte read zero-extended to 16 bits:
+        lda.w #0 / [ldy #c /] sep #$20 / lda X / rep #$20
+            =>   [ldy #c /] lda X / and.w #$00FF
+    (9 cycles instead of 14). The 16-bit read also reads the next byte: harmless
+    for memory, not for a hardware register where a read can clear a flag or
+    move a pointer ($2139, $4210...). Hardware registers are volatile, and tcc
+    reads a volatile byte with another form (sep / lda / rep / and.w #$00FF,
+    see VOLATILE_BYTE in 816-gen.c), so every long form here is a non-volatile
+    read: global, stack slot or pointer. Numeric addresses are still left alone
+    (*(u8 *)0x4210 written without volatile). Only N differs (bit 7 of the
+    byte before, 0 after), so the next line must not be a branch or a label.
+    Applied after the flow pass, whose patterns expect the long form.
+ */
+static size_t byteRead(const dynArray file, size_t i, dynArray *out)
+{
+    char buf[MAXLEN_LINE];
+
+    if (!peepAfterFlow || i + 5 >= file.used || !matchStr(file.arr[i], "lda.w #0"))
+        return 0;
+    size_t k = i + 1;
+    const char *ldy = NULL;
+    if (startWith(file.arr[k], "ldy #")) // pointer with an offset
+        ldy = file.arr[k++];
+    if (!matchStr(file.arr[k], "sep #$20") || !startWith(file.arr[k + 1], "lda")
+        || !matchStr(file.arr[k + 2], "rep #$20"))
+        return 0;
+    const char *ld = file.arr[k + 1];
+    const char *op = strchr(ld, ' ');
+    if (!op || strchr(op, '(') || strchr(op, '#'))
+        return 0;
+    op++;
+    int stack = endWith(op, ",s");
+    int pointer = op[0] == '[';
+    if (!stack && !pointer && (isdigit((unsigned char) op[0]) || op[0] == '$' || op[0] == '-'))
+        return 0; // numeric address: may be a hardware register
+    int global = startWith(ld, "lda.l ") || startWith(ld, "lda.w ");
+    if (!stack && !global && !pointer)
+        return 0;
+    if (ldy && !(pointer && endWith(op, ",y")))
+        return 0;
+    const char *nx = file.arr[k + 3];
+    if ((nx[0] == 'b' && !startWith(nx, "bit")) || endWith(nx, ":") || nx[0] == '+' || nx[0] == '-'
+        || nx[0] == '.')
+        return 0;
+    if (ldy)
+        *out = pushToArray(*out, (char *) ldy);
+    *out = pushToArray(*out, (char *) ld);
+    snprintf(buf, sizeof(buf), "and.w #$00FF");
+    *out = pushToArray(*out, buf);
+    return k + 3 - i;
+}
+
+/**
+ * @brief An unconditional jump to a label that directly follows it (only labels
+    in between) is useless: the code falls through to the same place.
+ */
+static size_t jumpToNext(const dynArray file, size_t i)
+{
+    char def[MAXLEN_LINE];
+    const char *target = jumpTarget(file.arr[i]);
+
+    if (!target || target[0] == '+' || target[0] == '-')
+        return 0;
+    snprintf(def, sizeof(def), "%s:", target);
+    for (size_t j = i + 1; j < file.used; j++) {
+        if (matchStr(file.arr[j], def))
+            return 1;
+        if (!endWith(file.arr[j], ":") && !matchStr(file.arr[j], "+") && !matchStr(file.arr[j], "-"))
+            break;
+    }
+    return 0;
+}
+
+/**
  * @brief Create an array of strings from a file
     without comment and leading/trailing white spaces.
     Accept an ASM file as argument or stdin.
- * @param argc The number of arguments provided.
- * @param argv The arguments provided.
+ * @param fileoptim The file to optimize.
  * @return A structure (dynArray).
  */
-dynArray tidyFile(const int argc, char **argv)
+dynArray tidyFile(char *filename)
 {
     char buf[MAXLEN_LINE];
     size_t nptrs = 10;
@@ -102,23 +447,14 @@ dynArray tidyFile(const int argc, char **argv)
     dynArray file;
     file.used = 0;
 
-    if (argc > 2) {
-        fprintf(stderr, "usage:\n");
-        fprintf(stderr, "  - %s <filename>\n", argv[0]);
-        fprintf(stderr, "  - <stdin> | %s\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    FILE *fp = argc > 1 ? fopen(argv[1], "r") : stdin;
+    FILE *fp = fopen(filename, "r");
 
     if (!fp) {
-        perror(argv[1]);
-        exit(EXIT_FAILURE);
+        fatal(filename);
     }
 
     if ((file.arr = malloc(nptrs * sizeof(char *))) == NULL) {
-        perror("malloc-lines");
-        exit(EXIT_FAILURE);
+        fatal("malloc-lines");
     }
 
     while (fgets(buf, MAXLEN_LINE, fp)) {
@@ -128,14 +464,14 @@ dynArray tidyFile(const int argc, char **argv)
             if (file.used == nptrs) {
                 void *tmp = realloc(file.arr, (2 * nptrs) * sizeof(char *));
                 if (!tmp) {
-                    perror("realloc-lines");
+                    fatal("realloc-lines");
                     break;
                 }
                 file.arr = tmp;
                 nptrs *= 2;
             }
             if (!(file.arr[file.used] = malloc(len + 1))) {
-                perror("malloc-lines[used]");
+                fatal("malloc-lines[used]");
                 break;
             }
             memcpy(file.arr[file.used], trimWhiteSpace(buf), len + 1);
@@ -162,8 +498,7 @@ dynArray storeBss(dynArray file)
     bss.used = 0;
 
     if ((bss.arr = malloc(file.used * sizeof(char *))) == NULL) {
-        perror("malloc-lines");
-        exit(EXIT_FAILURE);
+        fatal("malloc-lines");
     }
 
     for (size_t i = 0; i < file.used; i++) {
@@ -179,8 +514,7 @@ dynArray storeBss(dynArray file)
             len = strlen(file.arr[i]);
 
             if ((bss.arr[bss.used] = malloc(len + 1)) == NULL) {
-                perror("malloc-lines");
-                exit(EXIT_FAILURE);
+                fatal("malloc-lines");
             }
             memcpy(bss.arr[bss.used], file.arr[i], len + 1);
             // Get the first word only.
@@ -196,9 +530,9 @@ dynArray storeBss(dynArray file)
  * @brief Optimize ASM code.
  * @param file The asm file cleaned (see tidyFile function).
  * @param bss The bss section (only forst words).
- * @param verbose The level of verbosity (see verbosity function).
+ * @param quietdisp 1 no level of verbosity.
  */
-dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
+dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t quietdisp)
 {
     size_t totalopt = 0; // Total number of optimizations performed
     int opted = -1;      // Have we Optimized in this pass
@@ -210,8 +544,7 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
 
     while (opted) {
         if ((text_opt.arr = malloc(file.used * sizeof(char *))) == NULL) {
-            perror("malloc-lines");
-            exit(EXIT_FAILURE);
+            fatal("malloc-lines");
         }
 
         text_opt.used = 0;
@@ -219,10 +552,81 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
         opted = 0;
         size_t i = 0;
 
-        if (verbose)
-            fprintf(stderr, "optimization pass %lu: ", opass);
+        if (!quietdisp)
+            info("optimization pass %llu: ", opass);
 
         while (i < file.used) {
+            //record and remove .define <name>_locals 0 
+            r = regexMatchGroups(file.arr[i], "^\\.define\\s+([A-Za-z0-9_]+_locals)\\s+0$", 2);
+            if (r.arr != NULL) {
+                // remember the name (including the _locals suffix) but do not emit the .define 
+                pushLocalName(r.arr[1]);
+                freedynArray(r);
+                i += 1;
+                opted += 1; // count this as an optimization/removal 
+                continue;
+            }
+            r = regexMatchGroups(file.arr[i], "^\\.ifgr\\s+([A-Za-z0-9_]+_locals)\\s+0$", 2);
+            if (r.arr != NULL) {
+                if (hasLocalName(r.arr[1]) && i + 5 < file.used) {
+                    // prolog pattern 
+                    if (matchStr(file.arr[i + 1], "tsa")
+                        && matchStr(file.arr[i + 2], "sec")
+                        && startWith(file.arr[i + 3], "sbc #")
+                        && matchStr(file.arr[i + 4], "tas")
+                        && matchStr(file.arr[i + 5], ".endif")) {
+                        i += 6;
+                        opted += 1;
+                        freedynArray(r);
+                        continue;
+                    }
+
+                    /* epilog pattern */
+                    if (matchStr(file.arr[i + 1], "tsa")
+                        && matchStr(file.arr[i + 2], "clc")
+                        && startWith(file.arr[i + 3], "adc #")
+                        && matchStr(file.arr[i + 4], "tas")
+                        && matchStr(file.arr[i + 5], ".endif")) {
+                        i += 6;
+                        opted += 1;
+                        freedynArray(r);
+                        continue;
+                    }
+                }
+                freedynArray(r);
+            }
+            // Keep only local inside code -> remove name as it is useless (was 0 in define)
+            r = regexMatchGroups(file.arr[i],"([A-Za-z0-9_]+_locals) \\+ ([0-9]+),s",2);
+            if (r.arr != NULL) {
+                if (hasLocalName(r.arr[1])) {
+                    snprintf(snp_buf1, sizeof(snp_buf1), "%s + ", r.arr[1]);
+                    char *newline = replaceStr(file.arr[i], snp_buf1, "");
+                    text_opt = pushToArray(text_opt, newline);
+                    i++;
+                    opted++;
+                    freedynArray(r);
+                    continue;
+                }
+                freedynArray(r);
+            }
+
+            /* Control flow: compare + branch fusion (before the older, narrower
+               compare patterns below), branch over brl, jump threading */
+            size_t done = fuseCompare(file, i, &text_opt);
+            if (!done)
+                done = branchOverBrl(file, i, &text_opt);
+            if (!done)
+                done = jumpToNext(file, i);
+            if (!done)
+                done = byteRead(file, i, &text_opt);
+            if (!done)
+                done = threadJump(file, i, &text_opt);
+            if (done) {
+                i += done;
+                opted += 1;
+                continue;
+            }
+
             if (startWith(file.arr[i], "st")) {
                 /* Eliminate redundant stores */
                 r = regexMatchGroups(file.arr[i], STORE_AXYZ_TO_PSEUDO, 3);
@@ -565,11 +969,13 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
                     }
 
                     /* Store accu to preg, asl preg => asl accu, store accu to preg
-                        FIXME: is this safe? can we rely on code not making
-                       assumptions about the contents of the accu after the shift?
+                       Safe on tcc output only: tcc reloads A after a store. The
+                       flow analysis removes such reloads, so the pass after it
+                       must not apply this rule (the flow pass does the same
+                       rewrite itself, with the liveness of A).
                      */
                     snprintf(snp_buf1, sizeof(snp_buf1), "asl.b tcc__%s", r.arr[1]);
-                    if (matchStr(file.arr[i + 1], snp_buf1)) {
+                    if (!peepAfterFlow && matchStr(file.arr[i + 1], snp_buf1)) {
                         text_opt = pushToArray(text_opt, "asl a");
                         text_opt = pushToArray(text_opt, file.arr[i]);
 
@@ -939,7 +1345,9 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
                 continue;
             }
 
-            r = regexMatchGroups(file.arr[i], "adc #(.{0,})$", 2);
+            /* adc #c / sta rX / inc rX / inc rX => adc #c + 2 / sta rX: A ends
+               with another value, safe on tcc output only (see peepAfterFlow) */
+            r = peepAfterFlow ? (dynArray){0} : regexMatchGroups(file.arr[i], "adc #(.{0,})$", 2);
             if (r.arr != NULL) {
                 r1 = regexMatchGroups(file.arr[i + 1], "sta.b (tcc__[fr][0-9]{0,})$", 2);
                 if (r1.arr != NULL) {
@@ -1045,8 +1453,7 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
         freedynArray(file);
         if (opted > 0) {
             if ((file.arr = malloc(text_opt.used * sizeof(char *))) == NULL) {
-                perror("malloc-lines");
-                exit(EXIT_FAILURE);
+                fatal("malloc-lines");
             }
 
             file.used = text_opt.used;
@@ -1055,8 +1462,7 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
                 size_t len = strlen(text_opt.arr[i]);
 
                 if ((file.arr[i] = malloc(len + 1)) == NULL) {
-                    perror("malloc-lines");
-                    exit(EXIT_FAILURE);
+                    fatal("malloc-lines");
                 }
 
                 memcpy(file.arr[i], text_opt.arr[i], len + 1);
@@ -1064,14 +1470,21 @@ dynArray optimizeAsm(dynArray file, const dynArray bss, const size_t verbose)
             freedynArray(text_opt);
         }
 
-        if (verbose)
-            fprintf(stderr, "%u optimizations performed\n", opted);
+        // CLeaning local names
+        for (size_t ii = 0; ii < locals_names_used; ++ii)
+            free(locals_names[ii]);
+        free(locals_names);
+        locals_names = NULL;
+        locals_names_used = locals_names_size = 0;
+
+        if (!quietdisp)
+            info("%u optimizations performed", opted);
 
         totalopt += opted;
     }
 
-    if (verbose)
-        fprintf(stderr, "%lu optimizations performed in total\n", totalopt);
+    if (!quietdisp)
+        info("%llu optimizations performed in total", totalopt);
 
     return text_opt;
 }
