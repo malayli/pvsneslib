@@ -32,6 +32,8 @@
   SLOT 3 $0 $10000
 .ENDME                          ; End MemoryMap definition
 
+.EMPTYFILL $ff                  ; unused ROM is $ff (erased flash), set here so every lib object agrees: wlalink uses the last object's fill
+
 .ROMBANKSIZE $8000              ; Every ROM bank is 32 KBytes in size
 .ROMBANKS 8                     ; 2 Mbits - Tell WLA we want to use 8 ROM Banks
 

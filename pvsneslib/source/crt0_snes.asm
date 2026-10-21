@@ -54,9 +54,6 @@ EmptyNMI:
 
 .ENDS
 
-.EMPTYFILL $00                         ; fill unused areas with $00, opcode for BRK.
-                                       ; BRK will crash the snes if executed.
-
 .BANK 0
 .SECTION "Snes_Init" SEMIFREE
 tcc__snesinit:
